@@ -1,11 +1,10 @@
 export class EventManager {
   constructor(chart) {
-    this.chart = chart;
-    this.setupResizeObserver();
-    this.setupURLListener();
+    this.chart = chart.chart; // Get the Highcharts instance
+    this.setupResizeObserver(chart.container); // Pass the container element
   }
 
-  setupResizeObserver() {
+  setupResizeObserver(container) {
     const observer = new ResizeObserver((entries) => {
       for (let entry of entries) {
         if (this.chart) {
@@ -18,7 +17,7 @@ export class EventManager {
       }
     });
 
-    observer.observe(this.chart.container);
+    observer.observe(container);
   }
 
   setupURLListener() {
