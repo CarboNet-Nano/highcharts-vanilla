@@ -64,6 +64,9 @@ export class Chart {
           unit: data.unit,
         },
       ],
+      accessibility: {
+        enabled: false,
+      },
     });
   }
 
