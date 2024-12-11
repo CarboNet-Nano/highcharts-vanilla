@@ -1,4 +1,8 @@
-// Modified sections of chart.js
+import { themeManager } from "./themeManager.js";
+import { dataManager } from "./dataManager.js";
+import { DEFAULT_SETTINGS, ANIMATION_CONFIG } from "./constants.js";
+import { tooltipManager } from "./tooltipManager.js";
+import { annotationManager } from "./annotationManager.js";
 import { stateManager } from "./stateManager.js";
 
 export class Chart {
@@ -10,7 +14,7 @@ export class Chart {
 
   setupChart() {
     const theme = themeManager.getCurrentTheme();
-    const data = stateManager.getState(); // Use state instead of URL
+    const data = dataManager.getData(); // Using state instead of URL
     const validatedData = dataManager
       .validateData(data.values)
       .map((value) => ({
@@ -18,11 +22,76 @@ export class Chart {
         color: themeManager.getColorForValue(value),
       }));
 
-    // Rest of setup remains the same
-    // ...
+    this.chart = Highcharts.chart(this.container, {
+      chart: {
+        type: "column",
+        animation: ANIMATION_CONFIG,
+        backgroundColor: theme.background,
+        ...DEFAULT_SETTINGS,
+      },
+      title: {
+        text: null,
+      },
+      xAxis: {
+        categories: ["Value 1", "Value 2", "Value 3"],
+        labels: {
+          style: {
+            color: theme.text,
+          },
+        },
+        animation: false,
+        events: {
+          afterSetExtremes: function () {
+            return false;
+          },
+        },
+      },
+      yAxis: {
+        title: {
+          text: null,
+        },
+        labels: {
+          format: "{value}" + data.unit,
+          style: {
+            color: theme.text,
+          },
+        },
+        gridLineWidth: 0,
+        animation: false,
+        events: {
+          afterSetExtremes: function () {
+            return false;
+          },
+        },
+      },
+      tooltip: tooltipManager.format(),
+      plotOptions: {
+        column: {
+          dataLabels: annotationManager.createLabels(),
+          animation: false,
+        },
+        series: {
+          animation: false,
+          states: {
+            hover: {
+              animation: false,
+            },
+          },
+        },
+      },
+      series: [
+        {
+          name: "Values",
+          data: validatedData,
+          unit: data.unit,
+        },
+      ],
+      accessibility: {
+        enabled: false,
+      },
+    });
   }
 
-  // Test method to update values
   updateChartValues(newValues) {
     if (this.chart) {
       const state = stateManager.updateValues(newValues);

@@ -3,6 +3,6 @@ import { EventManager } from "./eventManager.js";
 
 document.addEventListener("DOMContentLoaded", () => {
   const container = document.getElementById("chart-container");
-  const chart = new Chart(container);
-  const events = new EventManager(chart);
+  window.chartInstance = new Chart(container); // Made global for testing
+  const events = new EventManager(chartInstance);
 });
