@@ -80,8 +80,18 @@ export class Chart {
 
   update(newData) {
     if (this.chart) {
-      this.chart.series[0].setData(newData, false);
-      this.chart.redraw();
+      // Update only point values and colors, not entire series
+      newData.forEach((point, i) => {
+        const currentPoint = this.chart.series[0].points[i];
+        if (currentPoint && currentPoint.y !== point.y) {
+          currentPoint.update(point, false, false);
+        }
+      });
+
+      // Only redraw points that changed
+      this.chart.series[0].isDirty = true;
+      this.chart.series[0].isDirtyData = true;
+      this.chart.redraw(false);
     }
   }
 }

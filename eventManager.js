@@ -52,11 +52,16 @@ export class EventManager {
 
     if (values && values !== this.lastValues) {
       const validatedData = this.chartWrapper.validateAndUpdateData();
-      // Only update if we have valid data
+      // Only update if we have valid data and values actually changed
       if (validatedData && validatedData.length > 0) {
-        this.chart.series[0].setData(validatedData, false);
-        this.chart.redraw(false);
+        const currentData = this.chart.series[0].data.map((point) => point.y);
+        const newData = validatedData.map((point) => point.y);
+
+        if (JSON.stringify(currentData) !== JSON.stringify(newData)) {
+          this.chartWrapper.update(validatedData);
+        }
       }
+      this.lastValues = values;
     }
   }
 }
