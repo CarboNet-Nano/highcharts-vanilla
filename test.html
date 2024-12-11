@@ -1,0 +1,38 @@
+// test.html
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Chart Test</title>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="chart-container"></div>
+    <div style="text-align: center; margin-top: 20px">
+      <input type="text" id="value1" value="35" />
+      <input type="text" id="value2" value="46" />
+      <input type="text" id="value3" value="82" />
+      <button onclick="updateValues()">Update Values</button>
+    </div>
+
+    <script type="module">
+      import { Chart } from "./chart.js";
+
+      let chartInstance;
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const container = document.getElementById("chart-container");
+        chartInstance = new Chart(container);
+
+        window.updateValues = () => {
+          const values = [
+            parseFloat(document.getElementById("value1").value),
+            parseFloat(document.getElementById("value2").value),
+            parseFloat(document.getElementById("value3").value),
+          ];
+          chartInstance.updateChartValues(values);
+        };
+      });
+    </script>
+  </body>
+</html>
