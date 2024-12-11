@@ -38,6 +38,12 @@ export class Chart {
             color: theme.text,
           },
         },
+        animation: false,
+        events: {
+          afterSetExtremes: function () {
+            return false; // Prevent axis updates
+          },
+        },
       },
       yAxis: {
         title: {
@@ -50,11 +56,26 @@ export class Chart {
           },
         },
         gridLineWidth: 0,
+        animation: false,
+        events: {
+          afterSetExtremes: function () {
+            return false; // Prevent axis updates
+          },
+        },
       },
       tooltip: tooltipManager.format(),
       plotOptions: {
         column: {
           dataLabels: annotationManager.createLabels(),
+          animation: false,
+        },
+        series: {
+          animation: false,
+          states: {
+            hover: {
+              animation: false,
+            },
+          },
         },
       },
       series: [
@@ -79,18 +100,27 @@ export class Chart {
   }
 
   update(newData) {
-    if (this.chart) {
-      // Update only point values and colors, not entire series
+    if (this.chart && this.chart.series[0]) {
+      // Update only the data points that changed
       newData.forEach((point, i) => {
         const currentPoint = this.chart.series[0].points[i];
-        if (currentPoint && currentPoint.y !== point.y) {
+        if (
+          currentPoint &&
+          (currentPoint.y !== point.y || currentPoint.color !== point.color)
+        ) {
           currentPoint.update(point, false, false);
         }
       });
 
-      // Only redraw points that changed
+      // Force redraw of only the points
       this.chart.series[0].isDirty = true;
       this.chart.series[0].isDirtyData = true;
+
+      // Prevent axis redraw
+      this.chart.xAxis[0].setExtremes();
+      this.chart.yAxis[0].setExtremes();
+
+      // Minimal redraw
       this.chart.redraw(false);
     }
   }
