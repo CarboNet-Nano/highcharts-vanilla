@@ -1,7 +1,12 @@
 export class EventManager {
   constructor(chart) {
-    this.chart = chart.chart; // Get the Highcharts instance
-    this.setupResizeObserver(chart.container); // Pass the container element
+    this.chart = chart.chart; // Highcharts instance
+    this.chartWrapper = chart; // Chart class instance
+    this.lastValues =
+      new URLSearchParams(window.location.search).get("values") || "";
+
+    this.setupResizeObserver(chart.container);
+    this.setupURLListener();
   }
 
   setupResizeObserver(container) {
@@ -21,6 +26,37 @@ export class EventManager {
   }
 
   setupURLListener() {
-    // Setup URL change detection if needed
+    // Listen for popstate events (browser back/forward)
+    window.addEventListener("popstate", () => this.handleURLChange());
+
+    // Create MutationObserver for URL changes
+    const observer = new MutationObserver(() => {
+      const currentValues =
+        new URLSearchParams(window.location.search).get("values") || "";
+      if (currentValues !== this.lastValues) {
+        this.handleURLChange();
+        this.lastValues = currentValues;
+      }
+    });
+
+    // Observe URL changes
+    observer.observe(document.querySelector("body"), {
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  handleURLChange() {
+    const params = new URLSearchParams(window.location.search);
+    const values = params.get("values");
+
+    if (values && values !== this.lastValues) {
+      const validatedData = this.chartWrapper.validateAndUpdateData();
+      // Only update if we have valid data
+      if (validatedData && validatedData.length > 0) {
+        this.chart.series[0].setData(validatedData, false);
+        this.chart.redraw(false);
+      }
+    }
   }
 }

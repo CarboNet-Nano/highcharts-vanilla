@@ -70,6 +70,14 @@ export class Chart {
     });
   }
 
+  validateAndUpdateData() {
+    const data = dataManager.parseURLParams();
+    return dataManager.validateData(data.values).map((value) => ({
+      y: value,
+      color: themeManager.getColorForValue(value),
+    }));
+  }
+
   update(newData) {
     if (this.chart) {
       this.chart.series[0].setData(newData, false);
