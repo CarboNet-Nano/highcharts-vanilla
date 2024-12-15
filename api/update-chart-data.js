@@ -34,6 +34,11 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     console.log("Parsed body:", body);
 
+    // Validate chartId
+    if (!body.chartId) {
+      throw new Error("Chart ID is required");
+    }
+
     let values = Array.isArray(body.values)
       ? body.values
       : body.value !== undefined
@@ -63,6 +68,7 @@ exports.handler = async (event, context) => {
       headers,
       body: JSON.stringify({
         success: true,
+        chartId: body.chartId,
         values: validatedValues,
         timestamp: new Date().toISOString(),
         processingTime: endTime - startTime,

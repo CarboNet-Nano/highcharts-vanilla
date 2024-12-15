@@ -78,7 +78,10 @@
       async function callAPI(values) {
         showStatus("Calling API...", "updating");
         try {
-          const requestBody = JSON.stringify({ values });
+          const requestBody = JSON.stringify({
+            chartId: "test-chart",
+            values: values,
+          });
           console.log("Sending:", requestBody);
 
           const response = await fetch(API_URL, {
