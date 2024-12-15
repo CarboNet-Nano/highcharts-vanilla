@@ -46,6 +46,7 @@
         <button onclick="updateValues()">Update Values</button>
       </div>
       <div id="status"></div>
+      <div id="apiResponse"></div>
     </div>
 
     <script type="module">
@@ -53,28 +54,44 @@
       import { EventManager } from "./eventManager.js";
 
       let chartInstance;
-      const API_URL = "/.netlify/functions/update-chart-data";
+      const API_URL =
+        "https://highcharts-vanilla.netlify.app/.netlify/functions/update-chart-data";
       const statusDiv = document.getElementById("status");
+      const responseDiv = document.getElementById("apiResponse");
 
       function showStatus(message, type) {
         statusDiv.textContent = message;
         statusDiv.className = type;
       }
 
+      function showResponse(data) {
+        responseDiv.textContent = JSON.stringify(data, null, 2);
+      }
+
       async function callAPI(values) {
-        const response = await fetch(API_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ values }),
-        });
+        showStatus("Calling API...", "updating");
+        try {
+          const response = await fetch(API_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ values }),
+          });
 
-        if (!response.ok) {
-          throw new Error(`API Error: ${response.statusText}`);
+          const data = await response.json();
+          showResponse(data);
+
+          if (!response.ok) {
+            throw new Error(data.error || `API Error: ${response.statusText}`);
+          }
+
+          return data;
+        } catch (error) {
+          console.error("API Error:", error);
+          showStatus(`Error: ${error.message}`, "error");
+          throw error;
         }
-
-        return response.json();
       }
 
       document.addEventListener("DOMContentLoaded", () => {
@@ -84,28 +101,20 @@
 
         window.updateValues = async () => {
           try {
-            showStatus("Updating...", "updating");
-
-            // Get values from inputs
             const values = [
               parseFloat(document.getElementById("value1").value),
               parseFloat(document.getElementById("value2").value),
               parseFloat(document.getElementById("value3").value),
             ];
 
-            // Call API
             const data = await callAPI(values);
 
             if (data.success) {
-              // Update chart with validated values from API
               chartInstance.updateChartValues(data.values);
               showStatus("Update successful", "success");
-            } else {
-              throw new Error("API update failed");
             }
           } catch (error) {
             console.error("Update failed:", error);
-            showStatus(`Error: ${error.message}`, "error");
           }
         };
       });
