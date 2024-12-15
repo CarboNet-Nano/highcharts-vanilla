@@ -1,5 +1,22 @@
 const { performance } = require("perf_hooks");
 
+// Data store for chart data
+const chartDataStore = {};
+
+// Input validation
+function validateValues(values) {
+  if (!Array.isArray(values)) {
+    throw new Error("Values must be an array");
+  }
+  return values.map((value) => {
+    const num = Number(value);
+    if (isNaN(num)) {
+      throw new Error(`Invalid number: ${value}`);
+    }
+    return num;
+  });
+}
+
 exports.handler = async (event, context) => {
   const startTime = performance.now();
 
@@ -34,32 +51,22 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     console.log("Parsed body:", body);
 
-    // Validate chartId
     if (!body.chartId) {
       throw new Error("Chart ID is required");
     }
 
-    let values = Array.isArray(body.values)
-      ? body.values
-      : body.value !== undefined
-      ? [body.value]
-      : Array.isArray(body)
-      ? body
-      : null;
-
-    if (!values) {
-      throw new Error("No valid values provided");
+    if (!body.values) {
+      throw new Error("Values are required");
     }
 
-    console.log("Processing values:", values);
+    const validatedValues = validateValues(body.values);
+    console.log("Validated values:", validatedValues);
 
-    const validatedValues = values.map((value) => {
-      const num = Number(value);
-      if (isNaN(num)) {
-        throw new Error(`Invalid number: ${value}`);
-      }
-      return num;
-    });
+    // Store in data store
+    chartDataStore[body.chartId] = {
+      values: validatedValues,
+      lastUpdated: new Date().toISOString(),
+    };
 
     const endTime = performance.now();
 
