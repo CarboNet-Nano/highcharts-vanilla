@@ -34,6 +34,10 @@ exports.handler = async (event, context) => {
   }
 
   try {
+    // Add to update-chart-data.js right at the start of try block
+    console.log("Raw event body:", event.body);
+    console.log("Headers:", event.headers);
+
     // Parse request body
     const body = JSON.parse(event.body);
     console.log("Parsed body:", body);
