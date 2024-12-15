@@ -3,25 +3,16 @@ const { performance } = require("perf_hooks");
 exports.handler = async (event, context) => {
   const startTime = performance.now();
 
-  // Add CORS headers
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
   };
 
-  // Handle OPTIONS request for CORS
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 200, headers, body: "" };
   }
 
-  console.log("Request received:", {
-    method: event.httpMethod,
-    headers: event.headers,
-    body: event.body,
-  });
-
-  // Validate HTTP method
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
@@ -33,30 +24,30 @@ exports.handler = async (event, context) => {
     };
   }
 
-  try {
-    // Add to update-chart-data.js right at the start of try block
-    console.log("Raw event body:", event.body);
-    console.log("Headers:", event.headers);
+  console.log("Request received:", {
+    method: event.httpMethod,
+    headers: event.headers,
+    body: event.body,
+  });
 
-    // Parse request body
+  try {
     const body = JSON.parse(event.body);
     console.log("Parsed body:", body);
 
-    // Handle both single value and array formats
     let values = Array.isArray(body.values)
       ? body.values
       : body.value !== undefined
       ? [body.value]
-      : body;
+      : Array.isArray(body)
+      ? body
+      : null;
 
-    // Ensure values is an array
-    if (!Array.isArray(values)) {
-      values = Object.values(values);
+    if (!values) {
+      throw new Error("No valid values provided");
     }
 
-    console.log("Processed values:", values);
+    console.log("Processing values:", values);
 
-    // Validate values
     const validatedValues = values.map((value) => {
       const num = Number(value);
       if (isNaN(num)) {
@@ -67,7 +58,6 @@ exports.handler = async (event, context) => {
 
     const endTime = performance.now();
 
-    // Return success response
     return {
       statusCode: 200,
       headers,
@@ -80,6 +70,7 @@ exports.handler = async (event, context) => {
     };
   } catch (error) {
     console.error("Processing error:", error);
+    console.log("Raw body received:", event.body);
 
     return {
       statusCode: 400,
