@@ -18,6 +18,10 @@ function validateValues(values) {
 }
 
 exports.handler = async (event, context) => {
+  console.log(
+    "Function source:",
+    require("fs").readFileSync(__filename, "utf8")
+  );
   const startTime = performance.now();
 
   const headers = {
