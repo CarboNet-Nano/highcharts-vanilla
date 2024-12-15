@@ -1,71 +1,36 @@
-exports.handler = async (event, context) => {
-  // Add CORS headers
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
-  };
-
-  // Handle OPTIONS request for CORS
-  if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers,
-      body: ''
-    };
-  }
-
-  // Validate HTTP method
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({
-        success: false,
-        message: 'Method not allowed'
-      })
-    };
-  }
+exports.handler = async (event) => {
+  // Log incoming request
+  console.log("Request body:", event.body);
 
   try {
-    // Parse request body
     const { values } = JSON.parse(event.body);
-    
-    // Validate values
-    if (!Array.isArray(values)) {
-      throw new Error('Values must be an array');
+
+    if (!values || !Array.isArray(values)) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          success: false,
+          error: "Values must be an array",
+          received: event.body,
+        }),
+      };
     }
 
-    // Validate each value is a number
-    const validatedValues = values.map(value => {
-      const num = Number(value);
-      if (isNaN(num)) {
-        throw new Error('All values must be numbers');
-      }
-      return num;
-    });
-
-    // Return success response
     return {
       statusCode: 200,
-      headers,
       body: JSON.stringify({
         success: true,
-        values: validatedValues,
-        timestamp: new Date().toISOString()
-      })
+        values: values,
+      }),
     };
-
   } catch (error) {
-    console.error('Error:', error);
-    
     return {
       statusCode: 400,
-      headers,
       body: JSON.stringify({
         success: false,
-        message: error.message
-      })
+        error: error.message,
+        received: event.body,
+      }),
     };
   }
 };
