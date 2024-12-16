@@ -1,10 +1,12 @@
 {
   "name": "highcharts-vanilla",
   "version": "1.0.0",
-  "description": "",
+  "description": "Highcharts implementation with WebSocket support",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "netlify dev",
+    "build": "netlify build"
   },
   "repository": {
     "type": "git",
@@ -17,10 +19,12 @@
     "url": "https://github.com/CarboNet-Nano/highcharts-vanilla/issues"
   },
   "homepage": "https://github.com/CarboNet-Nano/highcharts-vanilla#readme",
+  "dependencies": {
+    "@netlify/functions": "^2.8.2",
+    "ws": "^8.16.0",
+    "perf_hooks": "^0.0.1"
+  },
   "devDependencies": {
     "netlify-cli": "^17.38.0"
-  },
-  "dependencies": {
-    "@netlify/functions": "^2.8.2"
   }
 }

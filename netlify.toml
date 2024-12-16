@@ -7,6 +7,11 @@
   to = "/.netlify/functions/websocket"
   status = 200
   force = true
-  [redirects.headers]
-    Upgrade = "websocket"
-    Connection = "upgrade"
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["ws"]
+
+[dev]
+  framework = "#static"
+  targetPort = 8888
