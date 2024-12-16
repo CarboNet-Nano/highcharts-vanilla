@@ -26,7 +26,9 @@
     <div id="chart-container"></div>
 
     <script>
-      let currentValues = []; // Track current values globally
+      let chart = null;
+      let currentValues = null;
+
       const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
         cluster: "us3",
       });
@@ -53,23 +55,52 @@
 
           const data = await response.json();
           console.log("Initial data received:", data);
-          currentValues = data.values || [0, 0, 0]; // Store values globally
-          return currentValues;
+          if (data.success && data.values) {
+            currentValues = data.values;
+            return data.values;
+          }
+          return [0, 0, 0];
         } catch (error) {
           console.error("Failed to fetch initial values:", error);
           return [0, 0, 0];
         }
       }
 
-      async function createChart() {
-        const initialValues = await fetchInitialData();
-        console.log("Creating chart with values:", initialValues);
+      function updateChartData(values) {
+        if (!chart || !values) return;
 
-        let chart = Highcharts.chart("chart-container", {
+        const chartData = values.map((value) => ({
+          y: Number(value),
+          color: getColorForValue(Number(value)),
+        }));
+
+        // Update each point
+        chartData.forEach((point, index) => {
+          if (chart.series[0].points[index]) {
+            chart.series[0].points[index].update(point, false);
+          }
+        });
+
+        chart.redraw();
+      }
+
+      async function initializeChart() {
+        const values = await fetchInitialData();
+
+        const container = document.getElementById("chart-container");
+        chart = Highcharts.chart(container, {
           chart: {
             type: "column",
             animation: false,
             height: "100%",
+            events: {
+              // Ensure data is maintained after render
+              load: function () {
+                if (currentValues) {
+                  updateChartData(currentValues);
+                }
+              },
+            },
           },
           title: {
             text: null,
@@ -97,7 +128,7 @@
           series: [
             {
               name: "Values",
-              data: initialValues.map((value) => ({
+              data: values.map((value) => ({
                 y: value,
                 color: getColorForValue(value),
               })),
@@ -105,44 +136,29 @@
           ],
         });
 
+        // Listen for Pusher updates
         channel.bind("value-update", function (data) {
           console.log("Pusher update received:", data);
           if (data.type === "update" && Array.isArray(data.values)) {
-            currentValues = data.values; // Update global values
-            const chartData = data.values.map((value) => ({
-              y: Number(value),
-              color: getColorForValue(Number(value)),
-            }));
-
-            chartData.forEach((point, index) => {
-              chart.series[0].points[index].update(point, false);
-            });
-
-            chart.redraw();
+            currentValues = data.values;
+            updateChartData(currentValues);
           }
         });
 
-        // Handle window resize
+        // Handle resize
         window.addEventListener("resize", function () {
-          if (chart && currentValues.length > 0) {
-            const chartData = currentValues.map((value) => ({
-              y: Number(value),
-              color: getColorForValue(Number(value)),
-            }));
-
-            // Update chart with current values
-            chartData.forEach((point, index) => {
-              chart.series[0].points[index].update(point, false);
-            });
-
+          if (chart) {
             chart.reflow();
-            chart.redraw();
+            // Re-apply current values after reflow
+            if (currentValues) {
+              updateChartData(currentValues);
+            }
           }
         });
       }
 
-      // Initialize chart when page loads
-      document.addEventListener("DOMContentLoaded", createChart);
+      // Initialize on page load
+      document.addEventListener("DOMContentLoaded", initializeChart);
     </script>
   </body>
 </html>
