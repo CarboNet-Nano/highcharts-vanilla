@@ -1,110 +1,85 @@
 const WebSocket = require("ws");
 
-// Keep track of all connections
-const connections = new Set();
+// Store connections in memory
+const connections = new Map();
 
-// Create WebSocket server with port 3002 to avoid conflicts
-const wss = new WebSocket.Server({
-  port: 3002,
-  path: "/api/ws",
-});
+// Handler for WebSocket connections
+exports.handler = async (event, context) => {
+  const { routeKey } = event.requestContext || {};
 
-function heartbeat() {
-  this.isAlive = true;
-}
+  console.log(`WebSocket ${routeKey} event received`);
 
-// Connection handling
-wss.on("connection", (ws) => {
-  console.log("Client connected");
-  ws.isAlive = true;
-  connections.add(ws);
+  switch (routeKey) {
+    case "$connect":
+      return {
+        statusCode: 200,
+        body: "Connected",
+      };
 
-  // Set up heartbeat
-  ws.on("pong", heartbeat);
+    case "$disconnect":
+      connections.delete(event.requestContext.connectionId);
+      return {
+        statusCode: 200,
+        body: "Disconnected",
+      };
 
-  // Send welcome message
-  ws.send(
-    JSON.stringify({
-      type: "welcome",
-      message: "Connected to WebSocket server",
-      timestamp: new Date().toISOString(),
-    })
-  );
-
-  // Handle incoming messages
-  ws.on("message", (message) => {
-    try {
-      const data = JSON.parse(message.toString());
-      console.log("Received:", data);
-
-      // Echo back the message
-      ws.send(
-        JSON.stringify({
-          type: "echo",
-          data: data,
-          timestamp: new Date().toISOString(),
-        })
-      );
-    } catch (error) {
-      console.error("Error processing message:", error);
-    }
-  });
-
-  // Handle client disconnection
-  ws.on("close", () => {
-    console.log("Client disconnected");
-    connections.delete(ws);
-  });
-
-  // Handle errors
-  ws.on("error", (error) => {
-    console.error("WebSocket error:", error);
-    connections.delete(ws);
-  });
-});
-
-// Heartbeat interval
-const interval = setInterval(function ping() {
-  for (const ws of connections) {
-    if (ws.isAlive === false) {
-      console.log("Connection terminated due to inactivity");
-      connections.delete(ws);
-      return ws.terminate();
-    }
-
-    ws.isAlive = false;
-    ws.ping(() => {});
-  }
-}, 30000);
-
-// Clean up on server close
-wss.on("close", function close() {
-  clearInterval(interval);
-});
-
-// Function to broadcast updates to all clients
-function broadcast(data) {
-  const message = JSON.stringify({
-    type: "update",
-    ...data,
-    timestamp: new Date().toISOString(),
-  });
-
-  for (const client of connections) {
-    if (client.readyState === WebSocket.OPEN) {
+    case "$default":
+    default:
       try {
-        client.send(message);
+        // Handle incoming messages
+        const message = event.body ? JSON.parse(event.body) : {};
+        console.log("Message received:", message);
+
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: "Message received",
+            data: message,
+          }),
+        };
       } catch (error) {
-        console.error("Error sending message:", error);
-        connections.delete(client);
+        console.error("Error processing message:", error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: "Failed to process message" }),
+        };
       }
+  }
+};
+
+// Function to send message to a connection
+async function sendMessage(connectionId, message) {
+  try {
+    const connection = connections.get(connectionId);
+    if (connection) {
+      await connection.send(JSON.stringify(message));
     }
+  } catch (error) {
+    console.error(`Failed to send message to ${connectionId}:`, error);
   }
 }
 
-module.exports = { wss, broadcast };
+// Function to broadcast to all connections
+exports.broadcast = async (message) => {
+  const payload = JSON.stringify(message);
+  const staleConnections = [];
 
-// If this file is run directly (not imported as a module)
-if (require.main === module) {
-  console.log("WebSocket server started on port 3002");
-}
+  for (const [connectionId, connection] of connections) {
+    try {
+      if (connection.readyState === WebSocket.OPEN) {
+        await connection.send(payload);
+      } else {
+        staleConnections.push(connectionId);
+      }
+    } catch (error) {
+      console.error(`Failed to broadcast to ${connectionId}:`, error);
+      staleConnections.push(connectionId);
+    }
+  }
+
+  // Clean up stale connections
+  staleConnections.forEach((id) => connections.delete(id));
+};
+
+// Export for other functions to use
+module.exports.connections = connections;
