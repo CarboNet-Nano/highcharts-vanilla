@@ -26,8 +26,7 @@
     <div id="chart-container"></div>
 
     <script>
-      let currentChartData = [35.1, 46.3, 78.7]; // Store current data
-
+      let currentValues = []; // Track current values globally
       const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
         cluster: "us3",
       });
@@ -40,14 +39,37 @@
         return "#388E3C";
       }
 
-      async function createChart(initialValues = currentChartData) {
-        const container = document.getElementById("chart-container");
+      async function fetchInitialData() {
+        try {
+          const response = await fetch("/.netlify/functions/get-chart-values", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              chartId: "test-chart",
+            }),
+          });
 
-        let chart = Highcharts.chart(container, {
+          const data = await response.json();
+          console.log("Initial data received:", data);
+          currentValues = data.values || [0, 0, 0]; // Store values globally
+          return currentValues;
+        } catch (error) {
+          console.error("Failed to fetch initial values:", error);
+          return [0, 0, 0];
+        }
+      }
+
+      async function createChart() {
+        const initialValues = await fetchInitialData();
+        console.log("Creating chart with values:", initialValues);
+
+        let chart = Highcharts.chart("chart-container", {
           chart: {
             type: "column",
             animation: false,
-            spacing: [10, 10, 10, 10],
+            height: "100%",
           },
           title: {
             text: null,
@@ -83,10 +105,10 @@
           ],
         });
 
-        // Update data through Pusher
         channel.bind("value-update", function (data) {
+          console.log("Pusher update received:", data);
           if (data.type === "update" && Array.isArray(data.values)) {
-            currentChartData = data.values; // Store the updated data
+            currentValues = data.values; // Update global values
             const chartData = data.values.map((value) => ({
               y: Number(value),
               color: getColorForValue(Number(value)),
@@ -102,38 +124,25 @@
 
         // Handle window resize
         window.addEventListener("resize", function () {
-          if (chart) {
+          if (chart && currentValues.length > 0) {
+            const chartData = currentValues.map((value) => ({
+              y: Number(value),
+              color: getColorForValue(Number(value)),
+            }));
+
+            // Update chart with current values
+            chartData.forEach((point, index) => {
+              chart.series[0].points[index].update(point, false);
+            });
+
             chart.reflow();
+            chart.redraw();
           }
         });
       }
 
       // Initialize chart when page loads
-      document.addEventListener("DOMContentLoaded", async () => {
-        try {
-          // Get initial data from API
-          const response = await fetch("/.netlify/functions/get-chart-values", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              chartId: "test-chart",
-            }),
-          });
-
-          const data = await response.json();
-          if (data.success && data.values) {
-            currentChartData = data.values;
-          }
-
-          await createChart(currentChartData);
-        } catch (error) {
-          console.error("Error initializing chart:", error);
-          // Create chart with default data if API fails
-          await createChart();
-        }
-      });
+      document.addEventListener("DOMContentLoaded", createChart);
     </script>
   </body>
 </html>
