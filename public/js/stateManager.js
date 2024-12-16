@@ -1,7 +1,6 @@
-// stateManager.js
 export const stateManager = {
   currentState: {
-    values: [35, 46, 82],
+    values: [], // Empty initially, will be populated from API
     unit: "%",
     mode: "light",
   },
@@ -15,5 +14,27 @@ export const stateManager = {
   // Get current state
   getState() {
     return this.currentState;
+  },
+
+  // Initialize state from API
+  async initializeFromAPI() {
+    try {
+      const response = await fetch("/.netlify/functions/get-chart-values", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chartId: "test-chart",
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success && data.values) {
+        this.updateValues(data.values);
+      }
+    } catch (error) {
+      console.error("Failed to initialize state:", error);
+    }
   },
 };
