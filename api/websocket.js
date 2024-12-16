@@ -1,62 +1,75 @@
-<function_calls>
-<invoke name="artifacts">
-<parameter name="id">websocket-debug</parameter>
-<parameter name="type">application/vnd.ant.code</parameter>
-<parameter name="command">create</parameter>
-<parameter name="content">const { WebSocketServer } = require('ws');
+const { WebSocket, WebSocketServer } = require('ws');
 
-let wss;
+// Store active connections
 const connections = new Map();
 
+// WebSocket handler function
 exports.handler = async (event, context) => {
   // Log the incoming request
   console.log('WebSocket handler called:', {
-    httpMethod: event.httpMethod,
-    headers: event.headers
+    requestContext: event.requestContext
   });
 
-  // Check for WebSocket upgrade
-  if (event.requestContext.routeKey === '$connect') {
-    console.log('WebSocket connection attempt');
-    
-    if (!wss) {
-      wss = new WebSocketServer({ 
-        clientTracking: true,
-        noServer: true 
-      });
-
-      wss.on('connection', (ws) => {
-        console.log('New client connected');
-        const id = Math.random().toString(36).substring(7);
-        connections.set(id, ws);
-
-        ws.on('close', () => {
-          console.log('Client disconnected:', id);
-          connections.delete(id);
-        });
-      });
-    }
-
-    return {
-      statusCode: 200,
-      body: 'Connected'
-    };
-  }
-
-  return {
-    statusCode: 400,
-    body: 'Invalid request'
+  const headers = {
+    'Sec-WebSocket-Protocol': event.headers['sec-websocket-protocol'] || ''
   };
+
+  // Handle WebSocket lifecycle events
+  switch (event.requestContext.routeKey) {
+    case '$connect':
+      console.log('Client connecting...');
+      return { 
+        statusCode: 200, 
+        body: 'Connected',
+        headers 
+      };
+
+    case '$disconnect':
+      console.log('Client disconnected');
+      const connectionId = event.requestContext.connectionId;
+      connections.delete(connectionId);
+      return { statusCode: 200, body: 'Disconnected' };
+
+    case '$default':
+    default:
+      console.log('Received message:', event.body);
+      return { statusCode: 200, body: 'Message received' };
+  }
 };
 
-// Function to broadcast updates
-exports.broadcast = (data) => {
+// Function to broadcast updates to all connected clients
+exports.broadcast = async (data) => {
   console.log('Broadcasting to', connections.size, 'clients:', data);
-  connections.forEach((ws) => {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(data));
+  
+  const message = JSON.stringify(data);
+  const deadConnections = [];
+
+  // Send to all connected clients
+  for (const [connectionId, connection] of connections) {
+    try {
+      if (connection.readyState === WebSocket.OPEN) {
+        await connection.send(message);
+      } else {
+        deadConnections.push(connectionId);
+      }
+    } catch (err) {
+      console.error('Broadcast error:', err);
+      deadConnections.push(connectionId);
     }
-  });
-};</parameter>
-<parameter name="language">javascript</parameter>
-</invoke>​​​​​​​​​​​​​​​​
+  }
+
+  // Clean up dead connections
+  deadConnections.forEach(id => connections.delete(id));
+};
+
+// Add a new connection
+exports.addConnection = (connectionId, ws) => {
+  connections.set(connectionId, ws);
+  console.log('Added new connection:', connectionId);
+};
+
+// Remove a connection
+exports.removeConnection = (connectionId) => {
+  connections.delete(connectionId);
+  console.log('Removed connection:', connectionId);
+};
