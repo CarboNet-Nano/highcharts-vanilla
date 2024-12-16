@@ -90,7 +90,7 @@ exports.handler = async (event, context) => {
       lastUpdated: new Date().toISOString(),
     };
 
-    // Broadcast update through WebSocket //
+    // Broadcast update through WebSocket
     websocket.broadcast({
       chartId: chartId,
       values: validatedValues,
