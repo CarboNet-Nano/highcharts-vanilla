@@ -21,11 +21,19 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     console.log("Received initial data request:", body);
 
+    // Extract and validate the values
     const values = [
       Number(body.no_boost),
       Number(body.no_makedown),
       Number(body.makedown),
-    ].map((value) => Number(value.toFixed(1)));
+    ].map((value) => {
+      if (isNaN(value)) {
+        throw new Error(`Invalid number: ${value}`);
+      }
+      return Number(value.toFixed(1));
+    });
+
+    console.log("Processed values:", values); // Debug log
 
     return {
       statusCode: 200,

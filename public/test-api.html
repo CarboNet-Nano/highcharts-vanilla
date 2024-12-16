@@ -38,34 +38,30 @@
         return "#388E3C";
       }
 
-      async function refreshChartData() {
+      async function fetchInitialData() {
         try {
-          const response = await fetch(
-            "/.netlify/functions/update-chart-data",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                chartId: "test-chart",
-                no_boost: 35.1,
-                no_makedown: 46.3,
-                makedown: 78.7,
-              }),
-            }
-          );
+          const response = await fetch("/.netlify/functions/get-chart-values", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              chartId: "test-chart",
+            }),
+          });
 
           const data = await response.json();
-          return data.values || [35.1, 46.3, 78.7];
+          console.log("Initial data received:", data);
+          return data.values || [0, 0, 0]; // Fallback to zeros if no data
         } catch (error) {
-          console.error("Failed to fetch values:", error);
-          return [35.1, 46.3, 78.7];
+          console.error("Failed to fetch initial values:", error);
+          return [0, 0, 0]; // Fallback to zeros on error
         }
       }
 
       async function createChart() {
-        const initialValues = await refreshChartData();
+        const initialValues = await fetchInitialData();
+        console.log("Creating chart with values:", initialValues);
 
         let chart = Highcharts.chart("chart-container", {
           chart: {
@@ -108,6 +104,7 @@
         });
 
         channel.bind("value-update", function (data) {
+          console.log("Pusher update received:", data);
           if (data.type === "update" && Array.isArray(data.values)) {
             const chartData = data.values.map((value) => ({
               y: Number(value),
@@ -129,9 +126,6 @@
 
       // Initialize chart when page loads
       document.addEventListener("DOMContentLoaded", createChart);
-
-      // Refresh data every 5 seconds
-      setInterval(refreshChartData, 5000);
     </script>
   </body>
 </html>
