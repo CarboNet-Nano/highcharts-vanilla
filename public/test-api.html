@@ -1,174 +1,229 @@
 <!DOCTYPE html>
 <html>
-<head>
+  <head>
     <title>Highcharts Real-time Chart Test</title>
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <style>
-        body, html {
-            margin: 0;
-            padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        }
-        #chart-container {
-            width: 100%;
-            height: 400px;
-            margin-bottom: 20px;
-        }
-        #controls {
-            margin: 20px 0;
-            padding: 20px;
-            background: #f5f5f5;
-            border-radius: 8px;
-        }
-        #status {
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 4px;
-            font-family: monospace;
-        }
-        #log {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 4px;
-            font-family: monospace;
-            height: 200px;
-            overflow-y: auto;
-            margin-top: 20px;
-        }
-        .connected { background: #d4edda; color: #155724; }
-        .disconnected { background: #f8d7da; color: #721c24; }
-        button {
-            padding: 8px 16px;
-            margin: 5px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-            background: #fff;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #f8f9fa;
-        }
-        input {
-            padding: 8px;
-            margin: 5px;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-        }
+      body,
+      html {
+        margin: 0;
+        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+      }
+      #chart-container {
+        width: 100%;
+        height: 400px;
+        margin-bottom: 20px;
+      }
+      #controls {
+        margin: 20px 0;
+        padding: 20px;
+        background: #f5f5f5;
+        border-radius: 8px;
+      }
+      #status {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 4px;
+        font-family: monospace;
+      }
+      #log {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        font-family: monospace;
+        height: 200px;
+        overflow-y: auto;
+        margin-top: 20px;
+      }
+      .connected {
+        background: #d4edda;
+        color: #155724;
+      }
+      .disconnected {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      button {
+        padding: 8px 16px;
+        margin: 5px;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+        background: #fff;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #f8f9fa;
+      }
+      input {
+        padding: 8px;
+        margin: 5px;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+        width: 80px;
+      }
+      .debug-info {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #666;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <h1>Highcharts WebSocket Test</h1>
     <div id="controls">
-        <div>
-            <input type="number" id="value1" value="35" placeholder="Value 1">
-            <input type="number" id="value2" value="46" placeholder="Value 2">
-            <input type="number" id="value3" value="82" placeholder="Value 3">
-            <button onclick="updateChart()">Update Chart</button>
-            <button onclick="testWebSocket()">Test WebSocket</button>
-        </div>
-        <div id="status">Connection Status: Initializing...</div>
+      <div>
+        <input type="number" id="value1" value="35" placeholder="Value 1" />
+        <input type="number" id="value2" value="46" placeholder="Value 2" />
+        <input type="number" id="value3" value="82" placeholder="Value 3" />
+        <button onclick="updateChart()">Update Chart</button>
+        <button onclick="testWebSocket()">Test WebSocket</button>
+      </div>
+      <div id="status">Connection Status: Initializing...</div>
+      <div class="debug-info">WebSocket URL: <span id="wsUrl"></span></div>
     </div>
     <div id="chart-container"></div>
     <div id="log"></div>
 
     <script type="module">
-        import { Chart } from "./js/chart.js";
-        import { EventManager } from "./js/eventManager.js";
+      import { Chart } from "./js/chart.js";
+      import { EventManager } from "./js/eventManager.js";
 
-        let chartInstance;
-        let ws;
-        const statusDiv = document.getElementById("status");
-        const logDiv = document.getElementById("log");
+      let chartInstance;
+      let ws;
+      const statusDiv = document.getElementById("status");
+      const logDiv = document.getElementById("log");
+      const wsUrlSpan = document.getElementById("wsUrl");
 
-        function log(message, type = 'info') {
-            const timestamp = new Date().toLocaleTimeString();
-            logDiv.innerHTML += `<div style="color: ${type === 'error' ? 'red' : 'black'}">[${timestamp}] ${message}</div>`;
-            logDiv.scrollTop = logDiv.scrollHeight;
+      // Logging function
+      function log(message, type = "info") {
+        const timestamp = new Date().toLocaleTimeString();
+        const color =
+          type === "error"
+            ? "#dc3545"
+            : type === "success"
+            ? "#28a745"
+            : "#0d6efd";
+        logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+        logDiv.scrollTop = logDiv.scrollHeight;
+      }
+
+      // Status display function
+      function showStatus(message, isConnected) {
+        statusDiv.textContent = `Connection Status: ${message}`;
+        statusDiv.className = isConnected ? "connected" : "disconnected";
+        log(message, isConnected ? "success" : "error");
+      }
+
+      // Chart update function
+      window.updateChart = async () => {
+        const values = [
+          parseFloat(document.getElementById("value1").value),
+          parseFloat(document.getElementById("value2").value),
+          parseFloat(document.getElementById("value3").value),
+        ];
+
+        try {
+          log(`Sending update request with values: [${values.join(", ")}]`);
+
+          const response = await fetch(
+            "/.netlify/functions/update-chart-data",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ values }),
+            }
+          );
+
+          const data = await response.json();
+          log(
+            `API Response: ${JSON.stringify(data)}`,
+            data.success ? "success" : "error"
+          );
+
+          if (!data.success) {
+            throw new Error(data.message);
+          }
+        } catch (error) {
+          log(`Error updating chart: ${error.message}`, "error");
         }
+      };
 
-        function showStatus(message, isConnected) {
-            statusDiv.textContent = `Connection Status: ${message}`;
-            statusDiv.className = isConnected ? "connected" : "disconnected";
-            log(message);
+      // WebSocket test function
+      window.testWebSocket = () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          const testMessage = {
+            type: "ping",
+            timestamp: new Date().toISOString(),
+          };
+          ws.send(JSON.stringify(testMessage));
+          log(`Test message sent: ${JSON.stringify(testMessage)}`);
+        } else {
+          log("WebSocket not connected - cannot send test message", "error");
         }
+      };
 
-        window.updateChart = async () => {
-            const values = [
-                parseFloat(document.getElementById("value1").value),
-                parseFloat(document.getElementById("value2").value),
-                parseFloat(document.getElementById("value3").value)
-            ];
+      // WebSocket connection function
+      function connectWebSocket() {
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const port =
+          window.location.port || (protocol === "wss:" ? "443" : "80");
+        const wsUrl = `${protocol}//${window.location.hostname}:${port}/api/ws`;
 
+        wsUrlSpan.textContent = wsUrl;
+        log(`Attempting connection to ${wsUrl}`);
+
+        try {
+          ws = new WebSocket(wsUrl);
+
+          ws.onopen = () => {
+            showStatus("Connected", true);
+            log("WebSocket connection established");
+            // Send initial test message
+            ws.send(JSON.stringify({ type: "hello" }));
+          };
+
+          ws.onmessage = (event) => {
             try {
-                const response = await fetch('/.netlify/functions/update-chart-data', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ values })
-                });
-
-                const data = await response.json();
-                log(`API Response: ${JSON.stringify(data)}`);
-
-                if (!data.success) {
-                    throw new Error(data.message);
-                }
-
+              const data = JSON.parse(event.data);
+              log(`Received: ${JSON.stringify(data)}`);
+              if (data.values) {
+                chartInstance.updateChartValues(data.values);
+              }
             } catch (error) {
-                log(`Error updating chart: ${error.message}`, 'error');
+              log(`Error processing message: ${error}`, "error");
             }
-        };
+          };
 
-        window.testWebSocket = () => {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'ping', timestamp: new Date().toISOString() }));
-                log('Ping sent to WebSocket server');
-            } else {
-                log('WebSocket not connected', 'error');
-            }
-        };
+          ws.onclose = (event) => {
+            const reason = event.reason ? ` (${event.reason})` : "";
+            showStatus(`Disconnected (code: ${event.code}${reason})`, false);
+            log(`WebSocket closed with code: ${event.code}${reason}`);
+            setTimeout(connectWebSocket, 2000);
+          };
 
-        function connectWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/api/ws`;
-            
-            log(`Connecting to WebSocket: ${wsUrl}`);
-            ws = new WebSocket(wsUrl);
-
-            ws.onopen = () => {
-                showStatus('Connected', true);
-            };
-
-            ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    log(`Received WebSocket message: ${JSON.stringify(data)}`);
-                    if (data.values) {
-                        chartInstance.updateChartValues(data.values);
-                    }
-                } catch (error) {
-                    log(`Error processing message: ${error.message}`, 'error');
-                }
-            };
-
-            ws.onclose = () => {
-                showStatus('Disconnected - Reconnecting...', false);
-                setTimeout(connectWebSocket, 2000);
-            };
-
-            ws.onerror = (error) => {
-                log(`WebSocket error: ${error.message}`, 'error');
-                ws.close();
-            };
+          ws.onerror = (error) => {
+            log(
+              `WebSocket error: ${error.message || "Unknown error"}`,
+              "error"
+            );
+          };
+        } catch (error) {
+          log(`Connection error: ${error.message}`, "error");
+          setTimeout(connectWebSocket, 2000);
         }
+      }
 
-        document.addEventListener("DOMContentLoaded", () => {
-            const container = document.getElementById("chart-container");
-            chartInstance = new Chart(container);
-            const events = new EventManager(chartInstance);
-            connectWebSocket();
-        });
+      // Initialize everything when the DOM is ready
+      document.addEventListener("DOMContentLoaded", () => {
+        const container = document.getElementById("chart-container");
+        chartInstance = new Chart(container);
+        const events = new EventManager(chartInstance);
+        connectWebSocket();
+      });
     </script>
-</body>
+  </body>
 </html>

@@ -1,75 +1,54 @@
-const { WebSocket, WebSocketServer } = require('ws');
+const { WebSocketServer } = require("ws");
 
-// Store active connections
+let wss;
 const connections = new Map();
 
-// WebSocket handler function
-exports.handler = async (event, context) => {
-  // Log the incoming request
-  console.log('WebSocket handler called:', {
-    requestContext: event.requestContext
+function initializeWebSocketServer(server) {
+  wss = new WebSocketServer({
+    server,
+    path: "/api/ws",
   });
 
-  const headers = {
-    'Sec-WebSocket-Protocol': event.headers['sec-websocket-protocol'] || ''
-  };
+  wss.on("connection", (ws) => {
+    console.log("Client connected");
+    const id = Math.random().toString(36).substring(7);
+    connections.set(id, ws);
 
-  // Handle WebSocket lifecycle events
-  switch (event.requestContext.routeKey) {
-    case '$connect':
-      console.log('Client connecting...');
-      return { 
-        statusCode: 200, 
-        body: 'Connected',
-        headers 
-      };
+    ws.on("message", (message) => {
+      console.log("Received:", message.toString());
+    });
 
-    case '$disconnect':
-      console.log('Client disconnected');
-      const connectionId = event.requestContext.connectionId;
-      connections.delete(connectionId);
-      return { statusCode: 200, body: 'Disconnected' };
+    ws.on("close", () => {
+      console.log("Client disconnected:", id);
+      connections.delete(id);
+    });
 
-    case '$default':
-    default:
-      console.log('Received message:', event.body);
-      return { statusCode: 200, body: 'Message received' };
-  }
-};
+    ws.on("error", (error) => {
+      console.error("WebSocket error:", error);
+    });
 
-// Function to broadcast updates to all connected clients
-exports.broadcast = async (data) => {
-  console.log('Broadcasting to', connections.size, 'clients:', data);
-  
-  const message = JSON.stringify(data);
-  const deadConnections = [];
+    // Send initial connection confirmation
+    ws.send(JSON.stringify({ type: "connected", id }));
+  });
 
-  // Send to all connected clients
-  for (const [connectionId, connection] of connections) {
-    try {
-      if (connection.readyState === WebSocket.OPEN) {
-        await connection.send(message);
+  return wss;
+}
+
+module.exports = {
+  initializeWebSocketServer,
+
+  broadcast: (data) => {
+    if (!wss) return;
+
+    console.log("Broadcasting to", connections.size, "clients:", data);
+    const message = JSON.stringify(data);
+
+    connections.forEach((ws, id) => {
+      if (ws.readyState === ws.OPEN) {
+        ws.send(message);
       } else {
-        deadConnections.push(connectionId);
+        connections.delete(id);
       }
-    } catch (err) {
-      console.error('Broadcast error:', err);
-      deadConnections.push(connectionId);
-    }
-  }
-
-  // Clean up dead connections
-  deadConnections.forEach(id => connections.delete(id));
-};
-
-// Add a new connection
-exports.addConnection = (connectionId, ws) => {
-  connections.set(connectionId, ws);
-  console.log('Added new connection:', connectionId);
-};
-
-// Remove a connection
-exports.removeConnection = (connectionId) => {
-  connections.delete(connectionId);
-  console.log('Removed connection:', connectionId);
+    });
+  },
 };
