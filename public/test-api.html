@@ -38,65 +38,100 @@
         return "#388E3C";
       }
 
-      let chart = Highcharts.chart("chart-container", {
-        chart: {
-          type: "column",
-          animation: false,
-          height: "100%",
-        },
-        title: {
-          text: null,
-        },
-        xAxis: {
-          categories: ["No Boost", "No Makedown", "Makedown"],
-        },
-        yAxis: {
-          title: {
-            text: "Percentage",
-          },
-          labels: {
-            format: "{value}%",
-          },
-        },
-        plotOptions: {
-          column: {
+      async function refreshChartData() {
+        try {
+          const response = await fetch(
+            "/.netlify/functions/update-chart-data",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                chartId: "test-chart",
+                no_boost: 35.1,
+                no_makedown: 46.3,
+                makedown: 78.7,
+              }),
+            }
+          );
+
+          const data = await response.json();
+          return data.values || [35.1, 46.3, 78.7];
+        } catch (error) {
+          console.error("Failed to fetch values:", error);
+          return [35.1, 46.3, 78.7];
+        }
+      }
+
+      async function createChart() {
+        const initialValues = await refreshChartData();
+
+        let chart = Highcharts.chart("chart-container", {
+          chart: {
+            type: "column",
             animation: false,
-            dataLabels: {
-              enabled: true,
-              format: "{y:.1f}%",
+            height: "100%",
+          },
+          title: {
+            text: null,
+          },
+          xAxis: {
+            categories: ["No Boost", "No Makedown", "Makedown"],
+          },
+          yAxis: {
+            title: {
+              text: "Percentage",
+            },
+            labels: {
+              format: "{value}%",
             },
           },
-        },
-        series: [
-          {
-            name: "Values",
-            data: [
-              { y: 35.1, color: getColorForValue(35.1) },
-              { y: 58.6, color: getColorForValue(58.6) },
-              { y: 82.9, color: getColorForValue(82.9) },
-            ],
+          plotOptions: {
+            column: {
+              animation: false,
+              dataLabels: {
+                enabled: true,
+                format: "{y:.1f}%",
+              },
+            },
           },
-        ],
-      });
+          series: [
+            {
+              name: "Values",
+              data: initialValues.map((value) => ({
+                y: value,
+                color: getColorForValue(value),
+              })),
+            },
+          ],
+        });
 
-      channel.bind("value-update", function (data) {
-        if (data.type === "update" && Array.isArray(data.values)) {
-          const chartData = data.values.map((value) => ({
-            y: Number(value),
-            color: getColorForValue(Number(value)),
-          }));
+        channel.bind("value-update", function (data) {
+          if (data.type === "update" && Array.isArray(data.values)) {
+            const chartData = data.values.map((value) => ({
+              y: Number(value),
+              color: getColorForValue(Number(value)),
+            }));
 
-          chartData.forEach((point, index) => {
-            chart.series[0].points[index].update(point, false);
-          });
+            chartData.forEach((point, index) => {
+              chart.series[0].points[index].update(point, false);
+            });
 
-          chart.redraw();
-        }
-      });
+            chart.redraw();
+          }
+        });
 
-      window.addEventListener("resize", function () {
-        chart.setSize(window.innerWidth, window.innerHeight);
-      });
+        window.addEventListener("resize", function () {
+          chart.setSize(window.innerWidth, window.innerHeight);
+        });
+      }
+
+      // Initialize chart when page loads
+      document.addEventListener("DOMContentLoaded", createChart);
+
+      // Refresh data every 5 seconds
+      setInterval(refreshChartData, 5000);
     </script>
   </body>
 </html>
