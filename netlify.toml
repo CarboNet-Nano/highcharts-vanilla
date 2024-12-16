@@ -14,4 +14,9 @@
 
 [dev]
   framework = "#static"
+  port = 4000
   targetPort = 8888
+  staticServerPort = 8888
+
+[build.environment]
+  NODE_VERSION = "18.14.0"
