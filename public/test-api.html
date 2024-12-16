@@ -168,11 +168,7 @@
 
       // WebSocket connection function
       function connectWebSocket() {
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const port =
-          window.location.port || (protocol === "wss:" ? "443" : "80");
-        const wsUrl = `${protocol}//${window.location.hostname}:${port}/api/ws`;
-
+        const wsUrl = "ws://localhost:3001/api/ws";
         wsUrlSpan.textContent = wsUrl;
         log(`Attempting connection to ${wsUrl}`);
 
@@ -182,8 +178,6 @@
           ws.onopen = () => {
             showStatus("Connected", true);
             log("WebSocket connection established");
-            // Send initial test message
-            ws.send(JSON.stringify({ type: "hello" }));
           };
 
           ws.onmessage = (event) => {
@@ -198,18 +192,13 @@
             }
           };
 
-          ws.onclose = (event) => {
-            const reason = event.reason ? ` (${event.reason})` : "";
-            showStatus(`Disconnected (code: ${event.code}${reason})`, false);
-            log(`WebSocket closed with code: ${event.code}${reason}`);
+          ws.onclose = () => {
+            showStatus("Disconnected - Reconnecting...", false);
             setTimeout(connectWebSocket, 2000);
           };
 
           ws.onerror = (error) => {
-            log(
-              `WebSocket error: ${error.message || "Unknown error"}`,
-              "error"
-            );
+            log(`WebSocket error: ${error}`);
           };
         } catch (error) {
           log(`Connection error: ${error.message}`, "error");
