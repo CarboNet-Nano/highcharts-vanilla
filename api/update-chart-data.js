@@ -27,14 +27,12 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     console.log("Received update request:", body);
 
-    // Extract values from the body
     const values = [
       Number(body.no_boost),
       Number(body.no_makedown),
       Number(body.makedown),
     ];
 
-    // Validate values
     const validatedValues = values.map((value) => {
       if (isNaN(value)) {
         throw new Error(`Invalid number: ${value}`);
@@ -42,16 +40,10 @@ exports.handler = async (event, context) => {
       return Number(value.toFixed(1));
     });
 
-    // Send update via Pusher
-    await pusher.trigger("chart-updates", "value-update", {
-      type: "update",
-      values: validatedValues,
-      timestamp: new Date().toISOString(),
-    });
-
     const endTime = performance.now();
 
-    return {
+    // Return success response immediately
+    const response = {
       statusCode: 200,
       headers,
       body: JSON.stringify({
@@ -61,6 +53,17 @@ exports.handler = async (event, context) => {
         processingTime: endTime - startTime,
       }),
     };
+
+    // Send Pusher update asynchronously
+    pusher
+      .trigger("chart-updates", "value-update", {
+        type: "update",
+        values: validatedValues,
+        timestamp: new Date().toISOString(),
+      })
+      .catch(console.error);
+
+    return response;
   } catch (error) {
     console.error("Error:", error);
     return {
