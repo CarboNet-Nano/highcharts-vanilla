@@ -1,6 +1,7 @@
+const { performance } = require("perf_hooks");
+const pusher = require("../pusher");
+
 exports.handler = async (event, context) => {
-  const { performance } = require("perf_hooks");
-  const pusher = require("../pusher");
   const startTime = performance.now();
 
   const headers = {
@@ -26,6 +27,11 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     console.log("Received update request:", body);
 
+    // Check if we have the required data
+    if (!body.no_boost || !body.no_makedown || !body.makedown) {
+      throw new Error("Missing required values");
+    }
+
     const values = [
       Number(body.no_boost),
       Number(body.no_makedown),
@@ -39,6 +45,9 @@ exports.handler = async (event, context) => {
       return Number(value.toFixed(1));
     });
 
+    console.log("Sending to Pusher:", validatedValues);
+
+    // Try Pusher trigger with retries
     let retries = 3;
     let lastError;
 
@@ -49,12 +58,12 @@ exports.handler = async (event, context) => {
           values: validatedValues,
           timestamp: new Date().toISOString(),
         });
-        break;
+        break; // Success, exit loop
       } catch (error) {
         lastError = error;
         retries--;
         if (retries > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1s before retry
         }
       }
     }

@@ -21,6 +21,19 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     console.log("Received initial data request:", body);
 
+    // Check if we have the required data
+    if (!body.no_boost || !body.no_makedown || !body.makedown) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          message: "Missing required values",
+          receivedBody: event.body,
+        }),
+      };
+    }
+
     // Extract and validate the values
     const values = [
       Number(body.no_boost),
@@ -33,7 +46,7 @@ exports.handler = async (event, context) => {
       return Number(value.toFixed(1));
     });
 
-    console.log("Processed values:", values); // Debug log
+    console.log("Processed values:", values);
 
     return {
       statusCode: 200,
