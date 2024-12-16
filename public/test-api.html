@@ -1,135 +1,54 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Highcharts Real-time Chart Test</title>
+    <title>Highcharts Real-time Chart</title>
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://js.pusher.com/8.0/pusher.min.js"></script>
     <style>
       body,
       html {
         margin: 0;
-        padding: 20px;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          sans-serif;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
       }
       #chart-container {
         width: 100%;
-        height: 400px;
-        margin-bottom: 20px;
-      }
-      #controls {
-        margin: 20px 0;
-        padding: 20px;
-        background: #f5f5f5;
-        border-radius: 8px;
-      }
-      #status {
-        padding: 10px;
-        margin: 10px 0;
-        border-radius: 4px;
-        font-family: monospace;
-      }
-      #log {
-        background: #f8f9fa;
-        padding: 10px;
-        border-radius: 4px;
-        font-family: monospace;
-        height: 200px;
-        overflow-y: auto;
-        margin-top: 20px;
-      }
-      .connected {
-        background: #d4edda;
-        color: #155724;
-      }
-      .disconnected {
-        background: #f8d7da;
-        color: #721c24;
-      }
-      button {
-        padding: 8px 16px;
-        margin: 5px;
-        border-radius: 4px;
-        border: 1px solid #ddd;
-        background: #fff;
-        cursor: pointer;
-      }
-      button:hover {
-        background: #f8f9fa;
-      }
-      input {
-        padding: 8px;
-        margin: 5px;
-        border-radius: 4px;
-        border: 1px solid #ddd;
-        width: 80px;
-      }
-      .debug-info {
-        margin-top: 10px;
-        font-size: 12px;
-        color: #666;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
       }
     </style>
   </head>
   <body>
-    <h1>Highcharts Real-time Chart Test</h1>
-    <div id="controls">
-      <div>
-        <input type="number" id="value1" value="35" placeholder="Value 1" />
-        <input type="number" id="value2" value="46" placeholder="Value 2" />
-        <input type="number" id="value3" value="84" placeholder="Value 3" />
-        <button onclick="updateChart()">Update Chart</button>
-      </div>
-      <div id="status">Connection Status: Initializing...</div>
-      <div class="debug-info">
-        Pusher Status: <span id="pusherStatus"></span>
-      </div>
-    </div>
     <div id="chart-container"></div>
-    <div id="log"></div>
 
     <script>
-      // Initialize Pusher
       const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
         cluster: "us3",
       });
 
       const channel = pusher.subscribe("chart-updates");
-      const statusDiv = document.getElementById("status");
-      const logDiv = document.getElementById("log");
-      const pusherStatusSpan = document.getElementById("pusherStatus");
 
-      // Helper function to get color based on value
       function getColorForValue(value) {
-        if (value <= 15) return "#D32F2F"; // Red
-        if (value <= 45) return "#FFCA28"; // Yellow
-        return "#388E3C"; // Green
+        if (value <= 15) return "#D32F2F";
+        if (value <= 45) return "#FFCA28";
+        return "#388E3C";
       }
 
-      // Logging function
-      function log(message, type = "info") {
-        const timestamp = new Date().toLocaleTimeString();
-        const color =
-          type === "error"
-            ? "#dc3545"
-            : type === "success"
-            ? "#28a745"
-            : "#0d6efd";
-        logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
-        logDiv.scrollTop = logDiv.scrollHeight;
-      }
-
-      // Initialize Highcharts
       let chart = Highcharts.chart("chart-container", {
         chart: {
           type: "column",
           animation: false,
+          height: "100%",
         },
         title: {
           text: null,
         },
         xAxis: {
-          categories: ["Value 1", "Value 2", "Value 3"],
+          categories: ["No Boost", "No Makedown", "Makedown"],
         },
         yAxis: {
           title: {
@@ -144,7 +63,7 @@
             animation: false,
             dataLabels: {
               enabled: true,
-              format: "{y}%",
+              format: "{y:.1f}%",
             },
           },
         },
@@ -152,104 +71,32 @@
           {
             name: "Values",
             data: [
-              { y: 35, color: getColorForValue(35) },
-              { y: 46, color: getColorForValue(46) },
-              { y: 84, color: getColorForValue(84) },
+              { y: 35.1, color: getColorForValue(35.1) },
+              { y: 58.6, color: getColorForValue(58.6) },
+              { y: 82.9, color: getColorForValue(82.9) },
             ],
           },
         ],
       });
 
-      // Update connection status
-      pusher.connection.bind("state_change", function (states) {
-        pusherStatusSpan.textContent = states.current;
-        const isConnected = states.current === "connected";
-        statusDiv.textContent = `Connection Status: ${states.current}`;
-        statusDiv.className = isConnected ? "connected" : "disconnected";
-        log(
-          `Pusher connection state changed to: ${states.current}`,
-          isConnected ? "success" : "error"
-        );
-      });
-
-      // Listen for updates
       channel.bind("value-update", function (data) {
-        try {
-          log(`Received update: ${JSON.stringify(data)}`);
-          if (data.type === "update" && Array.isArray(data.values)) {
-            // Update input fields
-            if (data.values.length >= 3) {
-              document.getElementById("value1").value = data.values[0];
-              document.getElementById("value2").value = data.values[1];
-              document.getElementById("value3").value = data.values[2];
-            }
-            // Update chart
-            updateChartData(data.values);
-          }
-        } catch (error) {
-          log(`Error processing update: ${error}`, "error");
-        }
-      });
-
-      function updateChartData(values) {
-        try {
-          const chartData = values.map((value) => ({
+        if (data.type === "update" && Array.isArray(data.values)) {
+          const chartData = data.values.map((value) => ({
             y: Number(value),
             color: getColorForValue(Number(value)),
           }));
 
-          // Update points individually
           chartData.forEach((point, index) => {
             chart.series[0].points[index].update(point, false);
           });
 
-          // Redraw the chart once after all updates
           chart.redraw();
-
-          log(
-            `Chart updated successfully with values: [${values.join(", ")}]`,
-            "success"
-          );
-        } catch (error) {
-          log(`Error updating chart: ${error.message}`, "error");
         }
-      }
+      });
 
-      // Chart update function
-      window.updateChart = async () => {
-        const values = [
-          parseFloat(document.getElementById("value1").value),
-          parseFloat(document.getElementById("value2").value),
-          parseFloat(document.getElementById("value3").value),
-        ];
-
-        try {
-          log(`Sending update request with values: [${values.join(", ")}]`);
-
-          const response = await fetch(
-            "/.netlify/functions/update-chart-data",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ values }),
-            }
-          );
-
-          const data = await response.json();
-          log(
-            `API Response: ${JSON.stringify(data)}`,
-            data.success ? "success" : "error"
-          );
-
-          if (!data.success) {
-            throw new Error(data.message);
-          }
-        } catch (error) {
-          log(`Error updating chart: ${error.message}`, "error");
-        }
-      };
+      window.addEventListener("resize", function () {
+        chart.setSize(window.innerWidth, window.innerHeight);
+      });
     </script>
   </body>
 </html>

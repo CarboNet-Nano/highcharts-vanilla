@@ -5,7 +5,7 @@ exports.handler = async (event, context) => {
   const startTime = performance.now();
 
   const headers = {
-    "Access-Control-Allow-Origin": "https://go.glideapps.com",
+    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Max-Age": "86400",
@@ -27,17 +27,19 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     console.log("Received update request:", body);
 
-    if (!body.values || !Array.isArray(body.values)) {
-      throw new Error("Values array is required");
-    }
+    // Extract values from the body
+    const values = [
+      Number(body.no_boost),
+      Number(body.no_makedown),
+      Number(body.makedown),
+    ];
 
-    // Validate values are numbers
-    const validatedValues = body.values.map((value) => {
-      const num = Number(value);
-      if (isNaN(num)) {
+    // Validate values
+    const validatedValues = values.map((value) => {
+      if (isNaN(value)) {
         throw new Error(`Invalid number: ${value}`);
       }
-      return num;
+      return Number(value.toFixed(1));
     });
 
     // Send update via Pusher
