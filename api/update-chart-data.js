@@ -1,4 +1,5 @@
 const { performance } = require("perf_hooks");
+const websocket = require("./websocket");
 
 // Data store for chart data
 const chartDataStore = {};
@@ -88,6 +89,13 @@ exports.handler = async (event, context) => {
       values: validatedValues,
       lastUpdated: new Date().toISOString(),
     };
+
+    // Broadcast update through WebSocket
+    websocket.broadcast({
+      chartId: chartId,
+      values: validatedValues,
+      timestamp: new Date().toISOString(),
+    });
 
     const endTime = performance.now();
 

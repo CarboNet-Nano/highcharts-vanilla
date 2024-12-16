@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Chart API Test</title>
+    <title>Highcharts Real-time Chart</title>
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <style>
       body,
@@ -13,110 +13,76 @@
       }
       #chart-container {
         width: 100%;
-        height: 70vh;
+        height: 100vh;
         min-height: 300px;
       }
-      #controls {
-        padding: 20px;
-        text-align: center;
-      }
       #status {
-        margin-top: 10px;
-        padding: 5px;
-        min-height: 20px;
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-family: sans-serif;
+        font-size: 12px;
       }
-      .success {
-        color: green;
+      .connected {
+        background: #4caf50;
+        color: white;
       }
-      .error {
-        color: red;
-      }
-      .updating {
-        color: #666;
-      }
-      #apiResponse {
-        margin-top: 20px;
-        padding: 10px;
-        background: #f5f5f5;
-        white-space: pre-wrap;
-        text-align: left;
+      .disconnected {
+        background: #f44336;
+        color: white;
       }
     </style>
   </head>
   <body>
     <div id="chart-container"></div>
-    <div id="controls">
-      <div>
-        <input type="text" id="value1" value="35" />
-        <input type="text" id="value2" value="46" />
-        <input type="text" id="value3" value="82" />
-        <button onclick="updateValues()">Update Values</button>
-      </div>
-      <div id="status"></div>
-      <div id="apiResponse"></div>
-    </div>
+    <div id="status"></div>
 
     <script type="module">
       import { Chart } from "./chart.js";
       import { EventManager } from "./eventManager.js";
 
       let chartInstance;
-      const API_URL =
-        "https://ornate-sorbet-9b9982.netlify.app/.netlify/functions/update-chart-data";
+      let ws;
       const statusDiv = document.getElementById("status");
-      const responseDiv = document.getElementById("apiResponse");
 
-      function showStatus(message, type) {
+      function showStatus(message, isConnected) {
         statusDiv.textContent = message;
-        statusDiv.className = type;
+        statusDiv.className = isConnected ? "connected" : "disconnected";
       }
 
-      function showResponse(data) {
-        responseDiv.textContent = JSON.stringify(data, null, 2);
-      }
+      function connectWebSocket() {
+        const wsUrl = `${
+          window.location.protocol === "https:" ? "wss:" : "ws:"
+        }//${window.location.host}/api/ws`;
+        ws = new WebSocket(wsUrl);
 
-      async function callAPI(values) {
-        showStatus("Calling API...", "updating");
-        try {
-          const requestBody = JSON.stringify({
-            chartId: "test-chart",
-            values: values,
-          });
-          console.log("Sending:", requestBody);
+        ws.onopen = () => {
+          showStatus("Connected", true);
+        };
 
-          const response = await fetch(API_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: requestBody,
-          });
-
-          const textResponse = await response.text();
-          console.log("Raw response:", textResponse);
-
-          let data;
+        ws.onmessage = (event) => {
           try {
-            data = JSON.parse(textResponse);
-          } catch (parseError) {
-            console.error("JSON Parse Error:", parseError);
-            throw new Error(`Invalid JSON response: ${textResponse}`);
+            const data = JSON.parse(event.data);
+            if (data.values) {
+              chartInstance.updateChartValues(data.values);
+            }
+          } catch (error) {
+            console.error("Error processing message:", error);
           }
+        };
 
-          showResponse(data);
+        ws.onclose = () => {
+          showStatus("Disconnected - Reconnecting...", false);
+          // Try to reconnect after 2 seconds
+          setTimeout(connectWebSocket, 2000);
+        };
 
-          if (!response.ok) {
-            throw new Error(
-              data.message || `API Error: ${response.statusText}`
-            );
-          }
-
-          return data;
-        } catch (error) {
-          console.error("API Error:", error);
-          showStatus(`Error: ${error.message}`, "error");
-          throw error;
-        }
+        ws.onerror = (error) => {
+          console.error("WebSocket error:", error);
+          ws.close();
+        };
       }
 
       document.addEventListener("DOMContentLoaded", () => {
@@ -124,25 +90,8 @@
         chartInstance = new Chart(container);
         const events = new EventManager(chartInstance);
 
-        window.updateValues = async () => {
-          try {
-            const values = [
-              parseFloat(document.getElementById("value1").value),
-              parseFloat(document.getElementById("value2").value),
-              parseFloat(document.getElementById("value3").value),
-            ];
-
-            const data = await callAPI(values);
-
-            if (data.success) {
-              chartInstance.updateChartValues(data.values);
-              showStatus("Update successful", "success");
-            }
-          } catch (error) {
-            console.error("Update failed:", error);
-            showStatus(`Error: ${error.message}`, "error");
-          }
-        };
+        // Start WebSocket connection
+        connectWebSocket();
       });
     </script>
   </body>

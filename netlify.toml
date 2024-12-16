@@ -1,3 +1,12 @@
 [build]
   functions = "api"
   publish = "."
+
+[[redirects]]
+  from = "/api/ws/*"
+  to = "/.netlify/functions/websocket"
+  status = 200
+  force = true
+  [redirects.headers]
+    Upgrade = "websocket"
+    Connection = "upgrade"
