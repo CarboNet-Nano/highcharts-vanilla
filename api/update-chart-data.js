@@ -5,9 +5,10 @@ exports.handler = async (event, context) => {
   const startTime = performance.now();
 
   const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Origin": "https://go.glideapps.com",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Max-Age": "86400",
   };
 
   if (event.httpMethod === "OPTIONS") {
