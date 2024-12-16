@@ -25,7 +25,7 @@ exports.handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body);
-    console.log("Received update request:", body);
+    console.log("Received update request with body:", body); // Full body log
 
     // Check if we have the required data
     if (!body.no_boost || !body.no_makedown || !body.makedown) {
@@ -45,7 +45,7 @@ exports.handler = async (event, context) => {
       return Number(value.toFixed(1));
     });
 
-    console.log("Sending to Pusher:", validatedValues);
+    console.log("Sending to Pusher from update-chart-data:", validatedValues); // Updated log
 
     // Try Pusher trigger with retries
     let retries = 3;
@@ -55,15 +55,17 @@ exports.handler = async (event, context) => {
       try {
         await pusher.trigger("chart-updates", "value-update", {
           type: "update",
+          source: "update-workflow", // Added source identifier
           values: validatedValues,
           timestamp: new Date().toISOString(),
+          rawBody: body, // Include raw body for debugging
         });
-        break; // Success, exit loop
+        break;
       } catch (error) {
         lastError = error;
         retries--;
         if (retries > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1s before retry
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
     }
@@ -80,9 +82,11 @@ exports.handler = async (event, context) => {
       headers,
       body: JSON.stringify({
         success: true,
+        source: "update-workflow",
         values: validatedValues,
         timestamp: new Date().toISOString(),
         processingTime: endTime - startTime,
+        rawBody: body, // Include raw body in response for debugging
       }),
     };
   } catch (error) {
