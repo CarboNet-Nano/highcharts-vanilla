@@ -1,7 +1,6 @@
-const { performance } = require("perf_hooks");
-const pusher = require("../pusher");
-
 exports.handler = async (event, context) => {
+  const { performance } = require("perf_hooks");
+  const pusher = require("../pusher");
   const startTime = performance.now();
 
   const headers = {
@@ -40,7 +39,6 @@ exports.handler = async (event, context) => {
       return Number(value.toFixed(1));
     });
 
-    // Try Pusher trigger with retries
     let retries = 3;
     let lastError;
 
@@ -51,12 +49,12 @@ exports.handler = async (event, context) => {
           values: validatedValues,
           timestamp: new Date().toISOString(),
         });
-        break; // Success, exit loop
+        break;
       } catch (error) {
         lastError = error;
         retries--;
         if (retries > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1s before retry
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
     }
