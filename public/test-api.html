@@ -41,66 +41,12 @@
         return "#388E3C";
       }
 
-      async function fetchInitialData() {
-        try {
-          const response = await fetch("/.netlify/functions/get-chart-values", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              chartId: "test-chart",
-            }),
-          });
-
-          const data = await response.json();
-          console.log("Initial data received:", data);
-          if (data.success && data.values) {
-            currentValues = data.values;
-            return data.values;
-          }
-          return [0, 0, 0];
-        } catch (error) {
-          console.error("Failed to fetch initial values:", error);
-          return [0, 0, 0];
-        }
-      }
-
-      function updateChartData(values) {
-        if (!chart || !values) return;
-
-        const chartData = values.map((value) => ({
-          y: Number(value),
-          color: getColorForValue(Number(value)),
-        }));
-
-        // Update each point
-        chartData.forEach((point, index) => {
-          if (chart.series[0].points[index]) {
-            chart.series[0].points[index].update(point, false);
-          }
-        });
-
-        chart.redraw();
-      }
-
-      async function initializeChart() {
-        const values = await fetchInitialData();
-
-        const container = document.getElementById("chart-container");
-        chart = Highcharts.chart(container, {
+      function getChartConfig(values) {
+        return {
           chart: {
             type: "column",
             animation: false,
             height: "100%",
-            events: {
-              // Ensure data is maintained after render
-              load: function () {
-                if (currentValues) {
-                  updateChartData(currentValues);
-                }
-              },
-            },
           },
           title: {
             text: null,
@@ -129,35 +75,69 @@
             {
               name: "Values",
               data: values.map((value) => ({
-                y: value,
-                color: getColorForValue(value),
+                y: Number(value),
+                color: getColorForValue(Number(value)),
               })),
             },
           ],
-        });
+        };
+      }
 
-        // Listen for Pusher updates
+      async function fetchInitialData() {
+        try {
+          const response = await fetch("/.netlify/functions/get-chart-values", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              chartId: "test-chart",
+            }),
+          });
+
+          const data = await response.json();
+          console.log("Initial data received:", data);
+          if (data.success && data.values) {
+            currentValues = data.values;
+            return data.values;
+          }
+          return [0, 0, 0];
+        } catch (error) {
+          console.error("Failed to fetch initial values:", error);
+          return [0, 0, 0];
+        }
+      }
+
+      async function initializeChart() {
+        const values = await fetchInitialData();
+        const container = document.getElementById("chart-container");
+        const config = getChartConfig(values);
+        chart = Highcharts.chart(container, config);
+
         channel.bind("value-update", function (data) {
           console.log("Pusher update received:", data);
           if (data.type === "update" && Array.isArray(data.values)) {
             currentValues = data.values;
-            updateChartData(currentValues);
+            // Recreate chart with new values
+            const newConfig = getChartConfig(currentValues);
+            chart = Highcharts.chart(container, newConfig);
           }
         });
 
-        // Handle resize
+        let resizeTimeout;
         window.addEventListener("resize", function () {
-          if (chart) {
-            chart.reflow();
-            // Re-apply current values after reflow
-            if (currentValues) {
-              updateChartData(currentValues);
+          // Debounce the resize event
+          clearTimeout(resizeTimeout);
+          resizeTimeout = setTimeout(() => {
+            if (chart && currentValues) {
+              // Recreate chart with current values
+              const newConfig = getChartConfig(currentValues);
+              chart = Highcharts.chart(container, newConfig);
             }
-          }
+          }, 100);
         });
       }
 
-      // Initialize on page load
       document.addEventListener("DOMContentLoaded", initializeChart);
     </script>
   </body>
