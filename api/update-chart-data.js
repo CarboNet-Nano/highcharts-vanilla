@@ -4,24 +4,37 @@ const { performance } = require("perf_hooks");
 const chartDataStore = {};
 
 // Input validation
-function validateValues(values) {
-  if (!Array.isArray(values)) {
-    throw new Error("Values must be an array");
+function validateValues(input) {
+  // If it's already an array, validate it
+  if (Array.isArray(input)) {
+    return input.map((value) => {
+      const num = Number(value);
+      if (isNaN(num)) {
+        throw new Error(`Invalid number: ${value}`);
+      }
+      return num;
+    });
   }
-  return values.map((value) => {
-    const num = Number(value);
-    if (isNaN(num)) {
-      throw new Error(`Invalid number: ${value}`);
-    }
-    return num;
-  });
+
+  // If it's an object, extract values
+  if (typeof input === "object" && input !== null) {
+    // Extract everything except chartId
+    const values = Object.entries(input)
+      .filter(([key]) => key !== "chartId")
+      .map(([_, value]) => {
+        const num = Number(value);
+        if (isNaN(num)) {
+          throw new Error(`Invalid number: ${value}`);
+        }
+        return num;
+      });
+    return values;
+  }
+
+  throw new Error("Values must be an array or object");
 }
 
 exports.handler = async (event, context) => {
-  console.log(
-    "Function source:",
-    require("fs").readFileSync(__filename, "utf8")
-  );
   const startTime = performance.now();
 
   const headers = {
@@ -52,22 +65,26 @@ exports.handler = async (event, context) => {
   });
 
   try {
-    const body = JSON.parse(event.body);
+    let body = JSON.parse(event.body);
     console.log("Parsed body:", body);
 
-    if (!body.chartId) {
+    // Extract chartId - either from body directly or from values object
+    const chartId = body.chartId || (body.values && body.values.chartId);
+    if (!chartId) {
       throw new Error("Chart ID is required");
     }
 
-    if (!body.values) {
-      throw new Error("Values are required");
-    }
-
-    const validatedValues = validateValues(body.values);
+    // Get values - either from values array or from the body object itself
+    const rawValues = body.values || body;
+    const validatedValues = validateValues(rawValues);
     console.log("Validated values:", validatedValues);
 
+    if (validatedValues.length === 0) {
+      throw new Error("No valid values provided");
+    }
+
     // Store in data store
-    chartDataStore[body.chartId] = {
+    chartDataStore[chartId] = {
       values: validatedValues,
       lastUpdated: new Date().toISOString(),
     };
@@ -79,7 +96,7 @@ exports.handler = async (event, context) => {
       headers,
       body: JSON.stringify({
         success: true,
-        chartId: body.chartId,
+        chartId: chartId,
         values: validatedValues,
         timestamp: new Date().toISOString(),
         processingTime: endTime - startTime,
