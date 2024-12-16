@@ -3,52 +3,88 @@ const { WebSocketServer } = require("ws");
 let wss;
 const connections = new Map();
 
-function initializeWebSocketServer(server) {
-  wss = new WebSocketServer({
-    server,
-    path: "/api/ws",
-  });
+exports.handler = async (event, context) => {
+  // Log incoming request
+  console.log("WebSocket handler called:", event.requestContext);
 
-  wss.on("connection", (ws) => {
-    console.log("Client connected");
-    const id = Math.random().toString(36).substring(7);
-    connections.set(id, ws);
+  const headers = {
+    "Sec-WebSocket-Protocol": event.headers["sec-websocket-protocol"] || "",
+    Connection: "upgrade",
+    Upgrade: "websocket",
+  };
 
-    ws.on("message", (message) => {
-      console.log("Received:", message.toString());
-    });
+  // Handle WebSocket lifecycle events
+  switch (event.requestContext?.routeKey) {
+    case "$connect":
+      console.log("Client connecting...");
+      // Initialize WSS if not already done
+      if (!wss) {
+        wss = new WebSocketServer({
+          noServer: true,
+          clientTracking: true,
+        });
 
-    ws.on("close", () => {
-      console.log("Client disconnected:", id);
-      connections.delete(id);
-    });
+        wss.on("connection", (ws) => {
+          const id = Math.random().toString(36).substring(7);
+          connections.set(id, ws);
+          console.log("Client connected:", id);
 
-    ws.on("error", (error) => {
-      console.error("WebSocket error:", error);
-    });
+          ws.on("message", (message) => {
+            console.log("Received:", message.toString());
+          });
 
-    // Send initial connection confirmation
-    ws.send(JSON.stringify({ type: "connected", id }));
-  });
+          ws.on("close", () => {
+            console.log("Client disconnected:", id);
+            connections.delete(id);
+          });
 
-  return wss;
-}
+          // Send connection confirmation
+          ws.send(
+            JSON.stringify({
+              type: "connected",
+              id,
+              timestamp: new Date().toISOString(),
+            })
+          );
+        });
+      }
+      return {
+        statusCode: 200,
+        body: "Connected",
+        headers,
+      };
 
-module.exports = {
-  initializeWebSocketServer,
+    case "$disconnect":
+      console.log("Client disconnected");
+      return { statusCode: 200, body: "Disconnected" };
 
-  broadcast: (data) => {
-    if (!wss) return;
+    default:
+      if (event.body) {
+        console.log("Message received:", event.body);
+        // Broadcast to all connections
+        broadcast(JSON.parse(event.body));
+      }
+      return { statusCode: 200, body: "Message received" };
+  }
+};
 
-    console.log("Broadcasting to", connections.size, "clients:", data);
-    const message = JSON.stringify(data);
+function broadcast(data) {
+  if (!wss) return;
 
-    connections.forEach((ws, id) => {
-      if (ws.readyState === ws.OPEN) {
+  const message = JSON.stringify(data);
+  connections.forEach((ws, id) => {
+    try {
+      if (ws.readyState === 1) {
+        // WebSocket.OPEN
         ws.send(message);
       } else {
         connections.delete(id);
       }
-    });
-  },
-};
+    } catch (error) {
+      console.error(`Error sending to ${id}:`, error);
+      connections.delete(id);
+    }
+  });
+}
+
+exports.broadcast = broadcast;
