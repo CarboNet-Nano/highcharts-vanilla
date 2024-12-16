@@ -1,7 +1,7 @@
 {
   "name": "highcharts-vanilla",
   "version": "1.0.0",
-  "description": "Highcharts implementation with WebSocket support",
+  "description": "Highcharts implementation with Pusher support",
   "main": "index.js",
   "scripts": {
     "dev": "netlify dev",
@@ -9,10 +9,8 @@
   },
   "dependencies": {
     "@netlify/functions": "^2.8.2",
-    "express": "^4.21.2",
-    "http": "^0.0.1-security",
-    "path": "^0.12.7",
-    "ws": "^8.18.0"
+    "pusher": "^5.0.0",
+    "pusher-js": "^8.0.0"
   },
   "devDependencies": {
     "netlify-cli": "^17.38.0"

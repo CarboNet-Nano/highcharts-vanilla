@@ -3,6 +3,7 @@
   <head>
     <title>Highcharts Real-time Chart Test</title>
     <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://js.pusher.com/8.0/pusher.min.js"></script>
     <style>
       body,
       html {
@@ -71,27 +72,51 @@
     </style>
   </head>
   <body>
-    <h1>Highcharts WebSocket Test</h1>
+    <h1>Highcharts Real-time Chart Test</h1>
     <div id="controls">
       <div>
         <input type="number" id="value1" value="35" placeholder="Value 1" />
         <input type="number" id="value2" value="46" placeholder="Value 2" />
         <input type="number" id="value3" value="84" placeholder="Value 3" />
         <button onclick="updateChart()">Update Chart</button>
-        <button onclick="testWebSocket()">Test WebSocket</button>
       </div>
       <div id="status">Connection Status: Initializing...</div>
-      <div class="debug-info">WebSocket URL: <span id="wsUrl"></span></div>
+      <div class="debug-info">
+        Pusher Status: <span id="pusherStatus"></span>
+      </div>
     </div>
     <div id="chart-container"></div>
     <div id="log"></div>
 
     <script>
-      // Helper function to determine color based on value
+      // Initialize Pusher
+      const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
+        cluster: "us3",
+      });
+
+      const channel = pusher.subscribe("chart-updates");
+      const statusDiv = document.getElementById("status");
+      const logDiv = document.getElementById("log");
+      const pusherStatusSpan = document.getElementById("pusherStatus");
+
+      // Helper function to get color based on value
       function getColorForValue(value) {
         if (value <= 15) return "#D32F2F"; // Red
         if (value <= 45) return "#FFCA28"; // Yellow
         return "#388E3C"; // Green
+      }
+
+      // Logging function
+      function log(message, type = "info") {
+        const timestamp = new Date().toLocaleTimeString();
+        const color =
+          type === "error"
+            ? "#dc3545"
+            : type === "success"
+            ? "#28a745"
+            : "#0d6efd";
+        logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+        logDiv.scrollTop = logDiv.scrollHeight;
       }
 
       // Initialize Highcharts
@@ -135,32 +160,37 @@
         ],
       });
 
-      let ws;
-      const statusDiv = document.getElementById("status");
-      const logDiv = document.getElementById("log");
-      const wsUrlSpan = document.getElementById("wsUrl");
-
-      // Logging function
-      function log(message, type = "info") {
-        const timestamp = new Date().toLocaleTimeString();
-        const color =
-          type === "error"
-            ? "#dc3545"
-            : type === "success"
-            ? "#28a745"
-            : "#0d6efd";
-        logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
-        logDiv.scrollTop = logDiv.scrollHeight;
-      }
-
-      // Status display function
-      function showStatus(message, isConnected) {
-        statusDiv.textContent = `Connection Status: ${message}`;
+      // Update connection status
+      pusher.connection.bind("state_change", function (states) {
+        pusherStatusSpan.textContent = states.current;
+        const isConnected = states.current === "connected";
+        statusDiv.textContent = `Connection Status: ${states.current}`;
         statusDiv.className = isConnected ? "connected" : "disconnected";
-        log(message, isConnected ? "success" : "error");
-      }
+        log(
+          `Pusher connection state changed to: ${states.current}`,
+          isConnected ? "success" : "error"
+        );
+      });
 
-      // Update chart data
+      // Listen for updates
+      channel.bind("value-update", function (data) {
+        try {
+          log(`Received update: ${JSON.stringify(data)}`);
+          if (data.type === "update" && Array.isArray(data.values)) {
+            // Update input fields
+            if (data.values.length >= 3) {
+              document.getElementById("value1").value = data.values[0];
+              document.getElementById("value2").value = data.values[1];
+              document.getElementById("value3").value = data.values[2];
+            }
+            // Update chart
+            updateChartData(data.values);
+          }
+        } catch (error) {
+          log(`Error processing update: ${error}`, "error");
+        }
+      });
+
       function updateChartData(values) {
         try {
           const chartData = values.map((value) => ({
@@ -168,7 +198,7 @@
             color: getColorForValue(Number(value)),
           }));
 
-          // Update points individually instead of replacing the whole dataset
+          // Update points individually
           chartData.forEach((point, index) => {
             chart.series[0].points[index].update(point, false);
           });
@@ -216,81 +246,10 @@
           if (!data.success) {
             throw new Error(data.message);
           }
-
-          // Update chart immediately without waiting for WebSocket
-          updateChartData(values);
         } catch (error) {
           log(`Error updating chart: ${error.message}`, "error");
         }
       };
-
-      // WebSocket test function
-      window.testWebSocket = () => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          const testMessage = {
-            type: "ping",
-            timestamp: new Date().toISOString(),
-          };
-          ws.send(JSON.stringify(testMessage));
-          log(`Test message sent: ${JSON.stringify(testMessage)}`);
-        } else {
-          log("WebSocket not connected - cannot send test message", "error");
-        }
-      };
-
-      // WebSocket connection function
-      function connectWebSocket() {
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const host = window.location.host;
-        const wsUrl = `${protocol}//${host}/.netlify/functions/websocket`;
-
-        wsUrlSpan.textContent = wsUrl;
-        log(`Attempting connection to ${wsUrl}`);
-
-        try {
-          ws = new WebSocket(wsUrl);
-
-          ws.onopen = () => {
-            showStatus("Connected", true);
-            log("WebSocket connection established");
-          };
-
-          ws.onmessage = (event) => {
-            try {
-              const data = JSON.parse(event.data);
-              log(`Received: ${JSON.stringify(data)}`);
-
-              if (data.type === "update" && Array.isArray(data.values)) {
-                // Update input fields
-                if (data.values.length >= 3) {
-                  document.getElementById("value1").value = data.values[0];
-                  document.getElementById("value2").value = data.values[1];
-                  document.getElementById("value3").value = data.values[2];
-                }
-                // Update chart
-                updateChartData(data.values);
-              }
-            } catch (error) {
-              log(`Error processing message: ${error}`, "error");
-            }
-          };
-
-          ws.onclose = () => {
-            showStatus("Disconnected - Reconnecting...", false);
-            setTimeout(connectWebSocket, 2000);
-          };
-
-          ws.onerror = (error) => {
-            log(`WebSocket error: ${error}`);
-          };
-        } catch (error) {
-          log(`Connection error: ${error.message}`, "error");
-          setTimeout(connectWebSocket, 2000);
-        }
-      }
-
-      // Initialize WebSocket connection when the page loads
-      document.addEventListener("DOMContentLoaded", connectWebSocket);
     </script>
   </body>
 </html>

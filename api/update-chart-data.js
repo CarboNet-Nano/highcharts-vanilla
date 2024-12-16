@@ -1,5 +1,5 @@
 const { performance } = require("perf_hooks");
-const websocket = require("./websocket");
+const pusher = require("../pusher");
 
 exports.handler = async (event, context) => {
   const startTime = performance.now();
@@ -18,10 +18,7 @@ exports.handler = async (event, context) => {
     return {
       statusCode: 405,
       headers,
-      body: JSON.stringify({
-        success: false,
-        message: "Method not allowed",
-      }),
+      body: JSON.stringify({ success: false, message: "Method not allowed" }),
     };
   }
 
@@ -42,8 +39,8 @@ exports.handler = async (event, context) => {
       return num;
     });
 
-    // Broadcast the update
-    websocket.broadcast({
+    // Send update via Pusher
+    await pusher.trigger("chart-updates", "value-update", {
       type: "update",
       values: validatedValues,
       timestamp: new Date().toISOString(),
