@@ -162,11 +162,27 @@
 
       // Update chart data
       function updateChartData(values) {
-        const chartData = values.map((value) => ({
-          y: Number(value),
-          color: getColorForValue(Number(value)),
-        }));
-        chart.series[0].setData(chartData, true);
+        try {
+          const chartData = values.map((value) => ({
+            y: Number(value),
+            color: getColorForValue(Number(value)),
+          }));
+
+          // Update points individually instead of replacing the whole dataset
+          chartData.forEach((point, index) => {
+            chart.series[0].points[index].update(point, false);
+          });
+
+          // Redraw the chart once after all updates
+          chart.redraw();
+
+          log(
+            `Chart updated successfully with values: [${values.join(", ")}]`,
+            "success"
+          );
+        } catch (error) {
+          log(`Error updating chart: ${error.message}`, "error");
+        }
       }
 
       // Chart update function
@@ -224,7 +240,7 @@
 
       // WebSocket connection function
       function connectWebSocket() {
-        const wsUrl = "ws://localhost:3001/api/ws";
+        const wsUrl = "ws://localhost:3002/api/ws"; // Updated port to 3002
         wsUrlSpan.textContent = wsUrl;
         log(`Attempting connection to ${wsUrl}`);
 
@@ -250,10 +266,6 @@
                 }
                 // Update chart
                 updateChartData(data.values);
-                log(
-                  `Chart updated with values: [${data.values.join(", ")}]`,
-                  "success"
-                );
               }
             } catch (error) {
               log(`Error processing message: ${error}`, "error");

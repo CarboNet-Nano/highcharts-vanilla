@@ -3,9 +3,9 @@ const WebSocket = require("ws");
 // Keep track of all connections
 const connections = new Set();
 
-// Create WebSocket server
+// Create WebSocket server with port 3002 to avoid conflicts
 const wss = new WebSocket.Server({
-  port: 3001,
+  port: 3002,
   path: "/api/ws",
 });
 
@@ -106,5 +106,5 @@ module.exports = { wss, broadcast };
 
 // If this file is run directly (not imported as a module)
 if (require.main === module) {
-  console.log("WebSocket server started on port 3001");
+  console.log("WebSocket server started on port 3002");
 }
