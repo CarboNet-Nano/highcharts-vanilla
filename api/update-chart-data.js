@@ -40,10 +40,35 @@ exports.handler = async (event, context) => {
       return Number(value.toFixed(1));
     });
 
+    // Try Pusher trigger with retries
+    let retries = 3;
+    let lastError;
+
+    while (retries > 0) {
+      try {
+        await pusher.trigger("chart-updates", "value-update", {
+          type: "update",
+          values: validatedValues,
+          timestamp: new Date().toISOString(),
+        });
+        break; // Success, exit loop
+      } catch (error) {
+        lastError = error;
+        retries--;
+        if (retries > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1s before retry
+        }
+      }
+    }
+
+    if (retries === 0) {
+      console.error("Failed to send Pusher message after retries:", lastError);
+      throw lastError;
+    }
+
     const endTime = performance.now();
 
-    // Return success response immediately
-    const response = {
+    return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
@@ -53,17 +78,6 @@ exports.handler = async (event, context) => {
         processingTime: endTime - startTime,
       }),
     };
-
-    // Send Pusher update asynchronously
-    pusher
-      .trigger("chart-updates", "value-update", {
-        type: "update",
-        values: validatedValues,
-        timestamp: new Date().toISOString(),
-      })
-      .catch(console.error);
-
-    return response;
   } catch (error) {
     console.error("Error:", error);
     return {
