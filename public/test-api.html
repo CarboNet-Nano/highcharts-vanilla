@@ -87,186 +87,210 @@
     <div id="log"></div>
 
     <script>
-            // Helper function to determine color based on value
-            function getColorForValue(value) {
-              if (value <= 15) return "#D32F2F"; // Red
-              if (value <= 45) return "#FFCA28"; // Yellow
-              return "#388E3C"; // Green
-            }
-
-            // Initialize Highcharts
-            let chart = Highcharts.chart("chart-container", {
-              chart: {
-                type: "column",
-                animation: false,
-              },
-              title: {
-                text: null,
-              },
-              xAxis: {
-                categories: ["Value 1", "Value 2", "Value 3"],
-              },
-              yAxis: {
-                title: {
-                  text: "Percentage",
-                },
-                labels: {
-                  format: "{value}%",
-                },
-              },
-              plotOptions: {
-                column: {
-                  animation: false,
-                  dataLabels: {
-                    enabled: true,
-                    format: "{y}%",
-                  },
-                },
-              },
-              series: [
-                {
-                  name: "Values",
-                  data: [
-                    { y: 35, color: getColorForValue(35) },
-                    { y: 46, color: getColorForValue(46) },
-                    { y: 84, color: getColorForValue(84) },
-                  ],
-                },
-              ],
-            });
-
-            let ws;
-            const statusDiv = document.getElementById("status");
-            const logDiv = document.getElementById("log");
-            const wsUrlSpan = document.getElementById("wsUrl");
-
-            // Logging function
-            function log(message, type = "info") {
-              const timestamp = new Date().toLocaleTimeString();
-              const color =
-                type === "error"
-                  ? "#dc3545"
-                  : type === "success"
-                  ? "#28a745"
-                  : "#0d6efd";
-              logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
-              logDiv.scrollTop = logDiv.scrollHeight;
-            }
-
-            // Status display function
-            function showStatus(message, isConnected) {
-              statusDiv.textContent = `Connection Status: ${message}`;
-              statusDiv.className = isConnected ? "connected" : "disconnected";
-              log(message, isConnected ? "success" : "error");
-            }
-
-            // Update chart data
-            function updateChartData(values) {
-              try {
-                const chartData = values.map((value) => ({
-                  y: Number(value),
-                  color: getColorForValue(Number(value)),
-                }));
-
-                // Update points individually instead of replacing the whole dataset
-                chartData.forEach((point, index) => {
-                  chart.series[0].points[index].update(point, false);
-                });
-
-                // Redraw the chart once after all updates
-                chart.redraw();
-
-                log(
-                  `Chart updated successfully with values: [${values.join(", ")}]`,
-                  "success"
-                );
-              } catch (error) {
-                log(`Error updating chart: ${error.message}`, "error");
-              }
-            }
-
-            // Chart update function
-            window.updateChart = async () => {
-              const values = [
-                parseFloat(document.getElementById("value1").value),
-                parseFloat(document.getElementById("value2").value),
-                parseFloat(document.getElementById("value3").value),
-              ];
-
-              try {
-                log(`Sending update request with values: [${values.join(", ")}]`);
-
-                const response = await fetch(
-                  "/.netlify/functions/update-chart-data",
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ values }),
-                  }
-                );
-
-                const data = await response.json();
-                log(
-                  `API Response: ${JSON.stringify(data)}`,
-                  data.success ? "success" : "error"
-                );
-
-                if (!data.success) {
-                  throw new Error(data.message);
-                }
-
-                // Update chart immediately without waiting for WebSocket
-                updateChartData(values);
-              } catch (error) {
-                log(`Error updating chart: ${error.message}`, "error");
-              }
-            };
-
-            // WebSocket test function
-            window.testWebSocket = () => {
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                const testMessage = {
-                  type: "ping",
-                  timestamp: new Date().toISOString(),
-                };
-                ws.send(JSON.stringify(testMessage));
-                log(`Test message sent: ${JSON.stringify(testMessage)}`);
-              } else {
-                log("WebSocket not connected - cannot send test message", "error");
-              }
-            };
-
-            // Update the connectWebSocket function in test-api.html
-      function connectWebSocket() {
-          const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-          const host = window.location.host;
-          const wsUrl = `${protocol}//${host}/.netlify/functions/websocket`;
-
-          wsUrlSpan.textContent = wsUrl;
-          log(`Attempting connection to ${wsUrl}`);
-
-          try {
-              ws = new WebSocket(wsUrl);
-              // Rest of the WebSocket code remains the same...
-          } catch (error) {
-              log(`Connection error: ${error.message}`, 'error');
-              setTimeout(connectWebSocket, 2000);
-          }
+      // Helper function to determine color based on value
+      function getColorForValue(value) {
+        if (value <= 15) return "#D32F2F"; // Red
+        if (value <= 45) return "#FFCA28"; // Yellow
+        return "#388E3C"; // Green
       }
 
-                ws.onerror = (error) => {
-                  log(`WebSocket error: ${error}`);
-                };
-              } catch (error) {
-                log(`Connection error: ${error.message}`, "error");
-                setTimeout(connectWebSocket, 2000);
-              }
-            }
+      // Initialize Highcharts
+      let chart = Highcharts.chart("chart-container", {
+        chart: {
+          type: "column",
+          animation: false,
+        },
+        title: {
+          text: null,
+        },
+        xAxis: {
+          categories: ["Value 1", "Value 2", "Value 3"],
+        },
+        yAxis: {
+          title: {
+            text: "Percentage",
+          },
+          labels: {
+            format: "{value}%",
+          },
+        },
+        plotOptions: {
+          column: {
+            animation: false,
+            dataLabels: {
+              enabled: true,
+              format: "{y}%",
+            },
+          },
+        },
+        series: [
+          {
+            name: "Values",
+            data: [
+              { y: 35, color: getColorForValue(35) },
+              { y: 46, color: getColorForValue(46) },
+              { y: 84, color: getColorForValue(84) },
+            ],
+          },
+        ],
+      });
 
-            // Initialize WebSocket connection when the page loads
-            document.addEventListener("DOMContentLoaded", connectWebSocket);
+      let ws;
+      const statusDiv = document.getElementById("status");
+      const logDiv = document.getElementById("log");
+      const wsUrlSpan = document.getElementById("wsUrl");
+
+      // Logging function
+      function log(message, type = "info") {
+        const timestamp = new Date().toLocaleTimeString();
+        const color =
+          type === "error"
+            ? "#dc3545"
+            : type === "success"
+            ? "#28a745"
+            : "#0d6efd";
+        logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+        logDiv.scrollTop = logDiv.scrollHeight;
+      }
+
+      // Status display function
+      function showStatus(message, isConnected) {
+        statusDiv.textContent = `Connection Status: ${message}`;
+        statusDiv.className = isConnected ? "connected" : "disconnected";
+        log(message, isConnected ? "success" : "error");
+      }
+
+      // Update chart data
+      function updateChartData(values) {
+        try {
+          const chartData = values.map((value) => ({
+            y: Number(value),
+            color: getColorForValue(Number(value)),
+          }));
+
+          // Update points individually instead of replacing the whole dataset
+          chartData.forEach((point, index) => {
+            chart.series[0].points[index].update(point, false);
+          });
+
+          // Redraw the chart once after all updates
+          chart.redraw();
+
+          log(
+            `Chart updated successfully with values: [${values.join(", ")}]`,
+            "success"
+          );
+        } catch (error) {
+          log(`Error updating chart: ${error.message}`, "error");
+        }
+      }
+
+      // Chart update function
+      window.updateChart = async () => {
+        const values = [
+          parseFloat(document.getElementById("value1").value),
+          parseFloat(document.getElementById("value2").value),
+          parseFloat(document.getElementById("value3").value),
+        ];
+
+        try {
+          log(`Sending update request with values: [${values.join(", ")}]`);
+
+          const response = await fetch(
+            "/.netlify/functions/update-chart-data",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ values }),
+            }
+          );
+
+          const data = await response.json();
+          log(
+            `API Response: ${JSON.stringify(data)}`,
+            data.success ? "success" : "error"
+          );
+
+          if (!data.success) {
+            throw new Error(data.message);
+          }
+
+          // Update chart immediately without waiting for WebSocket
+          updateChartData(values);
+        } catch (error) {
+          log(`Error updating chart: ${error.message}`, "error");
+        }
+      };
+
+      // WebSocket test function
+      window.testWebSocket = () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          const testMessage = {
+            type: "ping",
+            timestamp: new Date().toISOString(),
+          };
+          ws.send(JSON.stringify(testMessage));
+          log(`Test message sent: ${JSON.stringify(testMessage)}`);
+        } else {
+          log("WebSocket not connected - cannot send test message", "error");
+        }
+      };
+
+      // WebSocket connection function
+      function connectWebSocket() {
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const host = window.location.host;
+        const wsUrl = `${protocol}//${host}/.netlify/functions/websocket`;
+
+        wsUrlSpan.textContent = wsUrl;
+        log(`Attempting connection to ${wsUrl}`);
+
+        try {
+          ws = new WebSocket(wsUrl);
+
+          ws.onopen = () => {
+            showStatus("Connected", true);
+            log("WebSocket connection established");
+          };
+
+          ws.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              log(`Received: ${JSON.stringify(data)}`);
+
+              if (data.type === "update" && Array.isArray(data.values)) {
+                // Update input fields
+                if (data.values.length >= 3) {
+                  document.getElementById("value1").value = data.values[0];
+                  document.getElementById("value2").value = data.values[1];
+                  document.getElementById("value3").value = data.values[2];
+                }
+                // Update chart
+                updateChartData(data.values);
+              }
+            } catch (error) {
+              log(`Error processing message: ${error}`, "error");
+            }
+          };
+
+          ws.onclose = () => {
+            showStatus("Disconnected - Reconnecting...", false);
+            setTimeout(connectWebSocket, 2000);
+          };
+
+          ws.onerror = (error) => {
+            log(`WebSocket error: ${error}`);
+          };
+        } catch (error) {
+          log(`Connection error: ${error.message}`, "error");
+          setTimeout(connectWebSocket, 2000);
+        }
+      }
+
+      // Initialize WebSocket connection when the page loads
+      document.addEventListener("DOMContentLoaded", connectWebSocket);
     </script>
   </body>
 </html>
