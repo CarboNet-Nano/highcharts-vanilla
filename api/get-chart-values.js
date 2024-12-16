@@ -1,4 +1,9 @@
+const { performance } = require("perf_hooks");
+const pusher = require("../pusher");
+
 exports.handler = async (event, context) => {
+  const startTime = performance.now();
+
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
@@ -34,7 +39,6 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Extract and validate the values
     const values = [
       Number(body.no_boost),
       Number(body.no_makedown),
@@ -48,6 +52,34 @@ exports.handler = async (event, context) => {
 
     console.log("Processed values:", values);
 
+    // Send to Pusher with retries
+    let retries = 3;
+    let lastError;
+
+    while (retries > 0) {
+      try {
+        await pusher.trigger("chart-updates", "value-update", {
+          type: "update",
+          values,
+          timestamp: new Date().toISOString(),
+        });
+        break;
+      } catch (error) {
+        lastError = error;
+        retries--;
+        if (retries > 0) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+    }
+
+    if (retries === 0) {
+      console.error("Failed to send Pusher message after retries:", lastError);
+      throw lastError;
+    }
+
+    const endTime = performance.now();
+
     return {
       statusCode: 200,
       headers,
@@ -55,6 +87,7 @@ exports.handler = async (event, context) => {
         success: true,
         values,
         timestamp: new Date().toISOString(),
+        processingTime: endTime - startTime,
       }),
     };
   } catch (error) {
