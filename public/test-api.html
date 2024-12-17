@@ -59,53 +59,23 @@
             currentValues = data.values;
             return data.values;
           }
-          return [0, 0, 0];
+          return currentValues || [0, 0, 0]; // Use existing values if available
         } catch (error) {
           console.error("Failed to fetch initial values:", error);
-          return [0, 0, 0];
+          return currentValues || [0, 0, 0]; // Use existing values if available
         }
       }
 
-      async function createChart() {
-        const initialValues = await fetchInitialData();
-        console.log("Creating chart with values:", initialValues);
+      async function refreshChart() {
+        if (!currentValues) {
+          currentValues = await fetchInitialData();
+        }
 
-        let chart = Highcharts.chart("chart-container", {
+        chart = Highcharts.chart("chart-container", {
           chart: {
             type: "column",
             animation: false,
             height: "100%",
-            events: {
-              load: function () {
-                console.log("Chart load event, currentValues:", currentValues);
-                // After initial load, fetch fresh data
-                fetchInitialData().then((values) => {
-                  this.series[0].setData(
-                    values.map((value) => ({
-                      y: value,
-                      color: getColorForValue(value),
-                    })),
-                    true
-                  );
-                });
-              },
-              render: function () {
-                console.log(
-                  "Chart render event, currentValues:",
-                  currentValues
-                );
-                if (currentValues) {
-                  // Ensure data is maintained after render
-                  this.series[0].setData(
-                    currentValues.map((value) => ({
-                      y: value,
-                      color: getColorForValue(value),
-                    })),
-                    true
-                  );
-                }
-              },
-            },
           },
           title: {
             text: null,
@@ -133,43 +103,32 @@
           series: [
             {
               name: "Values",
-              data: initialValues.map((value) => ({
+              data: currentValues.map((value) => ({
                 y: value,
                 color: getColorForValue(value),
               })),
             },
           ],
         });
+      }
+
+      // Initialize chart when page loads
+      document.addEventListener("DOMContentLoaded", async () => {
+        await refreshChart();
 
         channel.bind("value-update", function (data) {
           console.log("Pusher update received:", data);
           if (data.type === "update" && Array.isArray(data.values)) {
             currentValues = data.values;
-            const chartData = data.values.map((value) => ({
-              y: Number(value),
-              color: getColorForValue(Number(value)),
-            }));
-
-            chartData.forEach((point, index) => {
-              chart.series[0].points[index].update(point, false);
-            });
-
-            chart.redraw();
+            refreshChart(); // Redraw entire chart with new values
           }
         });
 
+        let resizeTimeout;
         window.addEventListener("resize", function () {
-          if (chart) {
-            chart.reflow();
-          }
+          clearTimeout(resizeTimeout);
+          resizeTimeout = setTimeout(refreshChart, 100); // Debounce resize
         });
-
-        return chart;
-      }
-
-      // Initialize chart when page loads
-      document.addEventListener("DOMContentLoaded", async () => {
-        chart = await createChart();
       });
     </script>
   </body>
