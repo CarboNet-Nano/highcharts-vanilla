@@ -40,7 +40,6 @@
 
       async function fetchInitialData() {
         try {
-          // Check localStorage first
           const storedData = localStorage.getItem("chartData");
           if (storedData) {
             console.log("Using stored data:", JSON.parse(storedData));
@@ -61,7 +60,6 @@
           console.log("Initial data received:", data);
 
           if (data.success && data.values) {
-            // Store the data
             localStorage.setItem("chartData", JSON.stringify(data.values));
             return data.values;
           }
@@ -76,11 +74,13 @@
         const initialValues = await fetchInitialData();
         console.log("Creating chart with values:", initialValues);
 
-        let chart = Highcharts.chart("chart-container", {
+        const container = document.getElementById("chart-container");
+        let chart = Highcharts.chart(container, {
           chart: {
             type: "column",
             animation: false,
-            height: "100%",
+            height: container.clientHeight,
+            width: container.clientWidth,
           },
           title: {
             text: null,
@@ -119,7 +119,6 @@
         channel.bind("value-update", function (data) {
           console.log("Pusher update received:", data);
           if (data.type === "update" && Array.isArray(data.values)) {
-            // Store the new values
             localStorage.setItem("chartData", JSON.stringify(data.values));
 
             const chartData = data.values.map((value) => ({
@@ -135,21 +134,26 @@
           }
         });
 
-        window.addEventListener("resize", async function () {
-          const storedData = localStorage.getItem("chartData");
-          if (storedData) {
-            const values = JSON.parse(storedData);
-            const chartData = values.map((value) => ({
-              y: Number(value),
-              color: getColorForValue(Number(value)),
-            }));
+        let resizeTimeout;
+        window.addEventListener("resize", function () {
+          clearTimeout(resizeTimeout);
+          resizeTimeout = setTimeout(() => {
+            const storedData = localStorage.getItem("chartData");
+            if (storedData) {
+              const values = JSON.parse(storedData);
+              const chartData = values.map((value) => ({
+                y: Number(value),
+                color: getColorForValue(Number(value)),
+              }));
 
-            chartData.forEach((point, index) => {
-              chart.series[0].points[index].update(point, false);
-            });
-          }
-          chart.reflow();
-          chart.redraw();
+              chart.setSize(container.clientWidth, container.clientHeight);
+
+              chartData.forEach((point, index) => {
+                chart.series[0].points[index].update(point, false);
+              });
+            }
+            chart.redraw();
+          }, 100);
         });
       }
 
