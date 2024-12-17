@@ -26,9 +26,6 @@
     <div id="chart-container"></div>
 
     <script>
-      let chart = null;
-      let currentValues = null;
-
       const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
         cluster: "us3",
       });
@@ -43,6 +40,13 @@
 
       async function fetchInitialData() {
         try {
+          // Check localStorage first
+          const storedData = localStorage.getItem("chartData");
+          if (storedData) {
+            console.log("Using stored data:", JSON.parse(storedData));
+            return JSON.parse(storedData);
+          }
+
           const response = await fetch("/.netlify/functions/get-chart-values", {
             method: "POST",
             headers: {
@@ -55,23 +59,24 @@
 
           const data = await response.json();
           console.log("Initial data received:", data);
+
           if (data.success && data.values) {
-            currentValues = data.values;
+            // Store the data
+            localStorage.setItem("chartData", JSON.stringify(data.values));
             return data.values;
           }
-          return currentValues || [0, 0, 0]; // Use existing values if available
+          return [0, 0, 0];
         } catch (error) {
           console.error("Failed to fetch initial values:", error);
-          return currentValues || [0, 0, 0]; // Use existing values if available
+          return [0, 0, 0];
         }
       }
 
-      async function refreshChart() {
-        if (!currentValues) {
-          currentValues = await fetchInitialData();
-        }
+      async function createChart() {
+        const initialValues = await fetchInitialData();
+        console.log("Creating chart with values:", initialValues);
 
-        chart = Highcharts.chart("chart-container", {
+        let chart = Highcharts.chart("chart-container", {
           chart: {
             type: "column",
             animation: false,
@@ -103,33 +108,52 @@
           series: [
             {
               name: "Values",
-              data: currentValues.map((value) => ({
+              data: initialValues.map((value) => ({
                 y: value,
                 color: getColorForValue(value),
               })),
             },
           ],
         });
-      }
-
-      // Initialize chart when page loads
-      document.addEventListener("DOMContentLoaded", async () => {
-        await refreshChart();
 
         channel.bind("value-update", function (data) {
           console.log("Pusher update received:", data);
           if (data.type === "update" && Array.isArray(data.values)) {
-            currentValues = data.values;
-            refreshChart(); // Redraw entire chart with new values
+            // Store the new values
+            localStorage.setItem("chartData", JSON.stringify(data.values));
+
+            const chartData = data.values.map((value) => ({
+              y: Number(value),
+              color: getColorForValue(Number(value)),
+            }));
+
+            chartData.forEach((point, index) => {
+              chart.series[0].points[index].update(point, false);
+            });
+
+            chart.redraw();
           }
         });
 
-        let resizeTimeout;
-        window.addEventListener("resize", function () {
-          clearTimeout(resizeTimeout);
-          resizeTimeout = setTimeout(refreshChart, 100); // Debounce resize
+        window.addEventListener("resize", async function () {
+          const storedData = localStorage.getItem("chartData");
+          if (storedData) {
+            const values = JSON.parse(storedData);
+            const chartData = values.map((value) => ({
+              y: Number(value),
+              color: getColorForValue(Number(value)),
+            }));
+
+            chartData.forEach((point, index) => {
+              chart.series[0].points[index].update(point, false);
+            });
+          }
+          chart.reflow();
+          chart.redraw();
         });
-      });
+      }
+
+      document.addEventListener("DOMContentLoaded", createChart);
     </script>
   </body>
 </html>
