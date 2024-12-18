@@ -13,10 +13,12 @@ export class Chart {
   }
 
   setupChart() {
+    const state = dataManager.getData();
+    themeManager.setMode(state.mode);
     const theme = themeManager.getCurrentTheme();
-    const data = dataManager.getData(); // Using state instead of URL
+
     const validatedData = dataManager
-      .validateData(data.values)
+      .validateData(state.values)
       .map((value) => ({
         y: value,
         color: themeManager.getColorForValue(value),
@@ -28,17 +30,21 @@ export class Chart {
         animation: ANIMATION_CONFIG,
         backgroundColor: theme.background,
         ...DEFAULT_SETTINGS,
+        style: {
+          fontFamily: "inherit",
+          color: theme.text,
+        },
       },
       title: {
         text: null,
       },
       xAxis: {
-        categories: ["Value 1", "Value 2", "Value 3"],
+        categories: ["No Boost", "No Makedown", "Makedown"],
         labels: {
-          style: {
-            color: theme.text,
-          },
+          style: { color: theme.text },
         },
+        lineColor: theme.text,
+        tickColor: theme.text,
         animation: false,
         events: {
           afterSetExtremes: function () {
@@ -51,11 +57,11 @@ export class Chart {
           text: null,
         },
         labels: {
-          format: "{value}" + data.unit,
-          style: {
-            color: theme.text,
-          },
+          format: "{value}" + state.unit,
+          style: { color: theme.text },
         },
+        gridLineColor: theme.text,
+        lineColor: theme.text,
         gridLineWidth: 0,
         animation: false,
         events: {
@@ -67,7 +73,10 @@ export class Chart {
       tooltip: tooltipManager.format(),
       plotOptions: {
         column: {
-          dataLabels: annotationManager.createLabels(),
+          dataLabels: {
+            ...annotationManager.createLabels(),
+            style: { color: theme.text },
+          },
           animation: false,
         },
         series: {
@@ -83,7 +92,7 @@ export class Chart {
         {
           name: "Values",
           data: validatedData,
-          unit: data.unit,
+          unit: state.unit,
         },
       ],
       accessibility: {
@@ -115,6 +124,35 @@ export class Chart {
       this.chart.series[0].isDirty = true;
       this.chart.series[0].isDirtyData = true;
       this.chart.redraw(false);
+    }
+  }
+
+  updateTheme(mode) {
+    if (this.chart) {
+      themeManager.setMode(mode);
+      const theme = themeManager.getCurrentTheme();
+
+      this.chart.update(
+        {
+          chart: {
+            backgroundColor: theme.background,
+            style: { color: theme.text },
+          },
+          xAxis: {
+            labels: { style: { color: theme.text } },
+            lineColor: theme.text,
+            tickColor: theme.text,
+          },
+          yAxis: {
+            labels: { style: { color: theme.text } },
+            gridLineColor: theme.text,
+            lineColor: theme.text,
+          },
+        },
+        false
+      );
+
+      this.chart.redraw();
     }
   }
 }
