@@ -38,27 +38,22 @@ exports.handler = async (event, context) => {
     const mode = body.mode || "light";
 
     // Initial load should use existing values
-    if (body.type === "initial-load") {
-      // values = latestValues || [35.1, 46.3, 78.7];
-      values = [
-        Number(body.no_boost),
-        Number(body.no_makedown),
-        Number(body.makedown),
-      ];
-      console.log("Processing values:", { values, source, timestamp });
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          source,
-          values,
-          mode,
-          timestamp,
-          lastUpdateTime,
-        }),
-      };
-    }
+    //if (body.type === "initial-load") {
+    // values = latestValues || [35.1, 46.3, 78.7];
+    //console.log("Processing values:", { values, source, timestamp });
+    //return {
+    //statusCode: 200,
+    //headers,
+    //body: JSON.stringify({
+    //success: true,
+    //source,
+    //values,
+    //mode,
+    //timestamp,
+    //lastUpdateTime,
+    //}),
+    //};
+    //}
 
     // Handle value updates
     if (body.no_boost && body.no_makedown && body.makedown) {
