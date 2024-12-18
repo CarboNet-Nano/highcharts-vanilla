@@ -45,6 +45,7 @@ export class Chart {
         },
         lineColor: theme.text,
         tickColor: theme.text,
+        gridLineWidth: 0,
         animation: false,
         events: {
           afterSetExtremes: function () {
@@ -142,11 +143,13 @@ export class Chart {
             labels: { style: { color: theme.text } },
             lineColor: theme.text,
             tickColor: theme.text,
+            gridLineWidth: 0,
           },
           yAxis: {
             labels: { style: { color: theme.text } },
             gridLineColor: theme.text,
             lineColor: theme.text,
+            gridLineWidth: 0,
           },
         },
         false

@@ -57,6 +57,10 @@
 
       async function fetchInitialData() {
         try {
+          const currentMode = document.body.classList.contains("theme-dark")
+            ? "dark"
+            : "light";
+
           const response = await fetch("/.netlify/functions/get-chart-values", {
             method: "POST",
             headers: {
@@ -64,6 +68,7 @@
             },
             body: JSON.stringify({
               type: "initial-load",
+              mode: currentMode,
             }),
           });
 
@@ -118,6 +123,7 @@
             labels: {
               format: "{value}%",
             },
+            gridLineWidth: 0,
           },
           plotOptions: {
             column: {
