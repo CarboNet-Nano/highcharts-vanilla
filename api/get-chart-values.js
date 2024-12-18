@@ -1,5 +1,5 @@
 const { performance } = require("perf_hooks");
-const pusher = require("../pusher");
+const pusher = require("./pusher");
 
 // Store latest values globally
 let latestValues = null;

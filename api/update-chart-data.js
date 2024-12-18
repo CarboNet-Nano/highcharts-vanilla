@@ -1,5 +1,5 @@
 const { performance } = require("perf_hooks");
-const pusher = require("../pusher");
+const pusher = require("./pusher");
 
 exports.handler = async (event, context) => {
   const startTime = performance.now();
@@ -25,12 +25,7 @@ exports.handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body);
-    console.log("Received update request with body:", body); // Full body log
-
-    // Check if we have the required data
-    if (!body.no_boost || !body.no_makedown || !body.makedown) {
-      throw new Error("Missing required values");
-    }
+    console.log("Received update request:", body);
 
     const values = [
       Number(body.no_boost),
@@ -45,7 +40,7 @@ exports.handler = async (event, context) => {
       return Number(value.toFixed(1));
     });
 
-    console.log("Sending to Pusher from update-chart-data:", validatedValues); // Updated log
+    console.log("Sending to Pusher from update-chart-data:", validatedValues);
 
     // Try Pusher trigger with retries
     let retries = 3;
@@ -55,10 +50,10 @@ exports.handler = async (event, context) => {
       try {
         await pusher.trigger("chart-updates", "value-update", {
           type: "update",
-          source: "update-workflow", // Added source identifier
+          source: "update-workflow",
           values: validatedValues,
           timestamp: new Date().toISOString(),
-          rawBody: body, // Include raw body for debugging
+          rawBody: body,
         });
         break;
       } catch (error) {
@@ -86,7 +81,7 @@ exports.handler = async (event, context) => {
         values: validatedValues,
         timestamp: new Date().toISOString(),
         processingTime: endTime - startTime,
-        rawBody: body, // Include raw body in response for debugging
+        rawBody: body,
       }),
     };
   } catch (error) {
