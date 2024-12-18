@@ -34,8 +34,8 @@ exports.handler = async (event, context) => {
     const timestamp = new Date().toISOString();
     let shouldPushUpdate = false;
 
-    // Strict mode validation
-    const mode = body.mode === "dark" ? "dark" : "light";
+    // Keep original mode from request
+    const mode = body.mode || "light";
 
     if (body.no_boost && body.no_makedown && body.makedown) {
       values = [
@@ -56,6 +56,8 @@ exports.handler = async (event, context) => {
       values = latestValues || [35.1, 46.3, 78.7];
     }
 
+    console.log("Processing values:", { values, source, timestamp });
+
     if (shouldPushUpdate) {
       let retries = 3;
       let lastError;
@@ -66,7 +68,7 @@ exports.handler = async (event, context) => {
             type: "update",
             source,
             values,
-            mode: mode,
+            mode,
             timestamp,
             lastUpdateTime,
           });
@@ -98,7 +100,7 @@ exports.handler = async (event, context) => {
         success: true,
         source,
         values,
-        mode: mode,
+        mode,
         timestamp,
         lastUpdateTime,
         processingTime: endTime - startTime,

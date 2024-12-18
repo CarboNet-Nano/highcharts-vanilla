@@ -27,8 +27,8 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     console.log("Received update request:", body);
 
-    // Strict mode validation
-    const mode = body.mode === "dark" ? "dark" : "light";
+    // Keep original mode from request
+    const mode = body.mode || "light";
 
     const values = [
       Number(body.no_boost),
@@ -54,7 +54,7 @@ exports.handler = async (event, context) => {
           type: "update",
           source: "update-workflow",
           values: validatedValues,
-          mode: mode,
+          mode,
           timestamp: new Date().toISOString(),
         });
         break;
@@ -81,7 +81,7 @@ exports.handler = async (event, context) => {
         success: true,
         source: "update-workflow",
         values: validatedValues,
-        mode: mode,
+        mode,
         timestamp: new Date().toISOString(),
         processingTime: endTime - startTime,
       }),
