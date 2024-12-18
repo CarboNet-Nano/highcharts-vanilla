@@ -1,10 +1,6 @@
 const { performance } = require("perf_hooks");
 const pusher = require("./pusher");
 
-// Store latest values globally
-let lastValues = null;
-let lastUpdateTime = null;
-
 exports.handler = async (event, context) => {
   const startTime = performance.now();
 
@@ -44,10 +40,6 @@ exports.handler = async (event, context) => {
       return Number(value.toFixed(1));
     });
 
-    // Store latest values
-    lastValues = validatedValues;
-    lastUpdateTime = new Date().toISOString();
-
     console.log("Sending to Pusher from update-chart-data:", validatedValues);
 
     // Try Pusher trigger with retries
@@ -60,8 +52,7 @@ exports.handler = async (event, context) => {
           type: "update",
           source: "update-workflow",
           values: validatedValues,
-          timestamp: lastUpdateTime,
-          rawBody: body,
+          timestamp: new Date().toISOString(),
         });
         break;
       } catch (error) {
@@ -87,9 +78,8 @@ exports.handler = async (event, context) => {
         success: true,
         source: "update-workflow",
         values: validatedValues,
-        timestamp: lastUpdateTime,
+        timestamp: new Date().toISOString(),
         processingTime: endTime - startTime,
-        rawBody: body,
       }),
     };
   } catch (error) {
