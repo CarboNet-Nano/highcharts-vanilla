@@ -4,6 +4,7 @@ const pusher = require("./pusher");
 // Store latest values globally
 let latestValues = null;
 let lastUpdateTime = null;
+let latestMode = null;
 
 exports.handler = async (event, context) => {
   const startTime = performance.now();
@@ -35,7 +36,6 @@ exports.handler = async (event, context) => {
     const timestamp = new Date().toISOString();
     let shouldPushUpdate = false;
 
-    // If this is a data update, process and store new values
     if (body.no_boost && body.no_makedown && body.makedown) {
       values = [
         Number(body.no_boost),
@@ -48,19 +48,18 @@ exports.handler = async (event, context) => {
         return Number(value.toFixed(1));
       });
 
-      // Store latest values and trigger update
       latestValues = values;
       lastUpdateTime = timestamp;
+      if (body.mode && ["light", "dark"].includes(body.mode)) {
+        latestMode = body.mode;
+      }
       shouldPushUpdate = true;
-    }
-    // If this is a sync check or initial load, return latest known values
-    else {
+    } else {
       values = latestValues || [35.1, 46.3, 78.7];
     }
 
     console.log("Processing values:", { values, source, timestamp });
 
-    // Only send Pusher update for real value changes
     if (shouldPushUpdate) {
       let retries = 3;
       let lastError;
@@ -71,6 +70,7 @@ exports.handler = async (event, context) => {
             type: "update",
             source,
             values,
+            mode: latestMode,
             timestamp,
             lastUpdateTime,
           });
@@ -102,6 +102,7 @@ exports.handler = async (event, context) => {
         success: true,
         source,
         values,
+        mode: latestMode,
         timestamp,
         lastUpdateTime,
         processingTime: endTime - startTime,
