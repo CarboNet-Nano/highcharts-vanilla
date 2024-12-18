@@ -1,6 +1,10 @@
 const { performance } = require("perf_hooks");
 const pusher = require("../pusher");
 
+// Store latest values globally
+let latestValues = null;
+let lastUpdateTime = null;
+
 exports.handler = async (event, context) => {
   const startTime = performance.now();
 
@@ -24,15 +28,35 @@ exports.handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body);
-    console.log("Received initial data request with body:", body);
+    console.log("Received request:", { body, type: body.type });
 
-    // If this is a sync check, we should return current values from the source of truth
-    // This would be your actual data source - for now using default values
-    const currentValues = [35.1, 46.3, 78.7]; // These should come from your actual data source
-
-    console.log("Sending current values:", currentValues);
-
+    let values;
+    let source = body.type || "unknown";
     const timestamp = new Date().toISOString();
+
+    // If this is a data update, process and store new values
+    if (body.no_boost && body.no_makedown && body.makedown) {
+      values = [
+        Number(body.no_boost),
+        Number(body.no_makedown),
+        Number(body.makedown),
+      ].map((value) => {
+        if (isNaN(value)) {
+          throw new Error(`Invalid number: ${value}`);
+        }
+        return Number(value.toFixed(1));
+      });
+
+      // Store latest values
+      latestValues = values;
+      lastUpdateTime = timestamp;
+    }
+    // If this is a sync check or initial load, return latest known values
+    else if (body.type === "sync-check" || body.type === "initial-load") {
+      values = latestValues || [35.1, 46.3, 78.7]; // Use defaults only if no updates received
+    }
+
+    console.log("Processing values:", { values, source, timestamp });
 
     // Try Pusher trigger with retries
     let retries = 3;
@@ -42,9 +66,10 @@ exports.handler = async (event, context) => {
       try {
         await pusher.trigger("chart-updates", "value-update", {
           type: "update",
-          source: "sync-check",
-          values: currentValues,
+          source,
+          values,
           timestamp,
+          lastUpdateTime,
         });
         break;
       } catch (error) {
@@ -68,9 +93,10 @@ exports.handler = async (event, context) => {
       headers,
       body: JSON.stringify({
         success: true,
-        source: "sync-check",
-        values: currentValues,
+        source,
+        values,
         timestamp,
+        lastUpdateTime,
         processingTime: endTime - startTime,
       }),
     };
