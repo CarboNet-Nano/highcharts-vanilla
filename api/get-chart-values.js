@@ -28,14 +28,18 @@ exports.handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body);
-    console.log("Received request:", { body, type: body.type });
+    console.log("Received request:", body);
 
     let values;
-    let source = body.type || "unknown";
+    let source = body.type || "update"; // Changed default type to 'update'
     const timestamp = new Date().toISOString();
 
-    // If this is a data update with full values, process and store them
-    if (body.no_boost && body.no_makedown && body.makedown) {
+    // Priority: Check for actual values first, then fall back to stored/default values
+    if (
+      body.no_boost !== undefined &&
+      body.no_makedown !== undefined &&
+      body.makedown !== undefined
+    ) {
       values = [
         Number(body.no_boost),
         Number(body.no_makedown),
@@ -51,19 +55,7 @@ exports.handler = async (event, context) => {
       latestValues = values;
       lastUpdateTime = timestamp;
     }
-    // For sync checks, use provided values if they exist
-    else if (body.values && Array.isArray(body.values)) {
-      values = body.values.map((value) => Number(value.toFixed(1)));
-      // Update stored values if they're different
-      if (
-        !latestValues ||
-        values.some((v, i) => Math.abs(v - latestValues[i]) > 0.1)
-      ) {
-        latestValues = values;
-        lastUpdateTime = timestamp;
-      }
-    }
-    // For initial load or if no values provided, use latest known values
+    // If we have no actual values, use stored values or defaults
     else {
       values = latestValues || [35.1, 46.3, 78.7];
     }

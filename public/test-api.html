@@ -40,7 +40,6 @@
 
       async function verifyAndUpdateChart(chart) {
         try {
-          // Get current chart values
           const currentValues = chart.series[0].points.map((point) => point.y);
 
           const response = await fetch("/.netlify/functions/get-chart-values", {
@@ -50,7 +49,7 @@
             },
             body: JSON.stringify({
               type: "sync-check",
-              values: currentValues, // Send current values
+              values: currentValues,
               no_boost: currentValues[0],
               no_makedown: currentValues[1],
               makedown: currentValues[2],
@@ -113,10 +112,6 @@
             },
             body: JSON.stringify({
               type: "initial-load",
-              values: currentValues,
-              no_boost: currentValues[0],
-              no_makedown: currentValues[1],
-              makedown: currentValues[2],
             }),
           });
 
@@ -185,12 +180,6 @@
           ],
         });
 
-        // Verify sync on creation
-        await verifyAndUpdateChart(chart);
-
-        // Set up periodic sync check (every 10 seconds)
-        setInterval(() => verifyAndUpdateChart(chart), 10000);
-
         channel.bind("value-update", function (data) {
           console.log("Pusher update received:", data);
           if (data.type === "update" && Array.isArray(data.values)) {
@@ -211,6 +200,9 @@
               });
 
               chart.redraw();
+
+              // Only verify after we get a new update
+              verifyAndUpdateChart(chart);
             } else {
               console.log("Skipping outdated update", {
                 current: new Date(parseInt(lastUpdate)).toISOString(),
