@@ -40,6 +40,7 @@
 
       async function verifyAndUpdateChart(chart) {
         try {
+          // Get current chart values
           const currentValues = chart.series[0].points.map((point) => point.y);
 
           const response = await fetch("/.netlify/functions/get-chart-values", {
@@ -50,9 +51,6 @@
             body: JSON.stringify({
               type: "sync-check",
               values: currentValues,
-              no_boost: currentValues[0],
-              no_makedown: currentValues[1],
-              makedown: currentValues[2],
             }),
           });
 
@@ -98,13 +96,6 @@
 
       async function fetchInitialData() {
         try {
-          // Try to get stored values first
-          const storedData = localStorage.getItem("chartData");
-          const lastUpdate = localStorage.getItem("lastUpdateTime");
-          let currentValues = storedData
-            ? JSON.parse(storedData)
-            : [35.1, 46.3, 78.7];
-
           const response = await fetch("/.netlify/functions/get-chart-values", {
             method: "POST",
             headers: {
@@ -126,7 +117,10 @@
             );
             return data.values;
           }
-          return currentValues;
+
+          // Try to get stored values as fallback
+          const storedData = localStorage.getItem("chartData");
+          return storedData ? JSON.parse(storedData) : [0, 0, 0];
         } catch (error) {
           console.error("Failed to fetch initial values:", error);
           const storedData = localStorage.getItem("chartData");
@@ -200,9 +194,6 @@
               });
 
               chart.redraw();
-
-              // Only verify after we get a new update
-              verifyAndUpdateChart(chart);
             } else {
               console.log("Skipping outdated update", {
                 current: new Date(parseInt(lastUpdate)).toISOString(),
