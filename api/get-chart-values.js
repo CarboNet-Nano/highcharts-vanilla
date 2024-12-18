@@ -31,15 +31,12 @@ exports.handler = async (event, context) => {
     console.log("Received request:", body);
 
     let values;
-    let source = body.type || "update"; // Changed default type to 'update'
+    let source = body.type || "update";
     const timestamp = new Date().toISOString();
+    let shouldPushUpdate = false;
 
-    // Priority: Check for actual values first, then fall back to stored/default values
-    if (
-      body.no_boost !== undefined &&
-      body.no_makedown !== undefined &&
-      body.makedown !== undefined
-    ) {
+    // If this is a data update, process and store new values
+    if (body.no_boost && body.no_makedown && body.makedown) {
       values = [
         Number(body.no_boost),
         Number(body.no_makedown),
@@ -51,43 +48,49 @@ exports.handler = async (event, context) => {
         return Number(value.toFixed(1));
       });
 
-      // Store latest values
+      // Store latest values and trigger update
       latestValues = values;
       lastUpdateTime = timestamp;
+      shouldPushUpdate = true;
     }
-    // If we have no actual values, use stored values or defaults
+    // If this is a sync check or initial load, return latest known values
     else {
       values = latestValues || [35.1, 46.3, 78.7];
     }
 
     console.log("Processing values:", { values, source, timestamp });
 
-    // Try Pusher trigger with retries
-    let retries = 3;
-    let lastError;
+    // Only send Pusher update for real value changes
+    if (shouldPushUpdate) {
+      let retries = 3;
+      let lastError;
 
-    while (retries > 0) {
-      try {
-        await pusher.trigger("chart-updates", "value-update", {
-          type: "update",
-          source,
-          values,
-          timestamp,
-          lastUpdateTime,
-        });
-        break;
-      } catch (error) {
-        lastError = error;
-        retries--;
-        if (retries > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+      while (retries > 0) {
+        try {
+          await pusher.trigger("chart-updates", "value-update", {
+            type: "update",
+            source,
+            values,
+            timestamp,
+            lastUpdateTime,
+          });
+          break;
+        } catch (error) {
+          lastError = error;
+          retries--;
+          if (retries > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
         }
       }
-    }
 
-    if (retries === 0) {
-      console.error("Failed to send Pusher message after retries:", lastError);
-      throw lastError;
+      if (retries === 0) {
+        console.error(
+          "Failed to send Pusher message after retries:",
+          lastError
+        );
+        throw lastError;
+      }
     }
 
     const endTime = performance.now();
