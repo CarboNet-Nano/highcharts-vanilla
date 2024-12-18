@@ -24,7 +24,7 @@ exports.handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body);
-    console.log("Received initial data request with body:", body); // Full body log
+    console.log("Received initial data request with body:", body);
 
     // Check if we have the required data
     if (!body.no_boost || !body.no_makedown || !body.makedown) {
@@ -50,7 +50,9 @@ exports.handler = async (event, context) => {
       return Number(value.toFixed(1));
     });
 
-    console.log("Sending to Pusher from get-chart-values:", values); // Updated log
+    console.log("Sending to Pusher from get-chart-values:", values);
+
+    const timestamp = new Date().toISOString();
 
     // Try Pusher trigger with retries
     let retries = 3;
@@ -60,10 +62,10 @@ exports.handler = async (event, context) => {
       try {
         await pusher.trigger("chart-updates", "value-update", {
           type: "update",
-          source: "initial-load", // Added source identifier
+          source: "initial-load",
           values,
-          timestamp: new Date().toISOString(),
-          rawBody: body, // Include raw body for debugging
+          timestamp,
+          rawBody: body,
         });
         break;
       } catch (error) {
@@ -89,9 +91,9 @@ exports.handler = async (event, context) => {
         success: true,
         source: "initial-load",
         values,
-        timestamp: new Date().toISOString(),
+        timestamp,
         processingTime: endTime - startTime,
-        rawBody: body, // Include raw body in response for debugging
+        rawBody: body,
       }),
     };
   } catch (error) {

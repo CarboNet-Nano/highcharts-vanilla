@@ -41,9 +41,15 @@
       async function fetchInitialData() {
         try {
           const storedData = localStorage.getItem("chartData");
-          if (storedData) {
-            console.log("Using stored data:", JSON.parse(storedData));
-            return JSON.parse(storedData);
+          const lastUpdate = localStorage.getItem("lastUpdateTime");
+
+          if (storedData && lastUpdate) {
+            // Check if stored data is less than 5 minutes old
+            const now = Date.now();
+            if (now - parseInt(lastUpdate) < 5 * 60 * 1000) {
+              console.log("Using stored data:", JSON.parse(storedData));
+              return JSON.parse(storedData);
+            }
           }
 
           const response = await fetch("/.netlify/functions/get-chart-values", {
@@ -61,6 +67,10 @@
 
           if (data.success && data.values) {
             localStorage.setItem("chartData", JSON.stringify(data.values));
+            localStorage.setItem(
+              "lastUpdateTime",
+              new Date(data.timestamp).getTime()
+            );
             return data.values;
           }
           return [0, 0, 0];
@@ -119,18 +129,29 @@
         channel.bind("value-update", function (data) {
           console.log("Pusher update received:", data);
           if (data.type === "update" && Array.isArray(data.values)) {
-            localStorage.setItem("chartData", JSON.stringify(data.values));
+            const lastUpdate = localStorage.getItem("lastUpdateTime");
+            const newTimestamp = new Date(data.timestamp).getTime();
 
-            const chartData = data.values.map((value) => ({
-              y: Number(value),
-              color: getColorForValue(Number(value)),
-            }));
+            if (!lastUpdate || newTimestamp > parseInt(lastUpdate)) {
+              localStorage.setItem("chartData", JSON.stringify(data.values));
+              localStorage.setItem("lastUpdateTime", newTimestamp);
 
-            chartData.forEach((point, index) => {
-              chart.series[0].points[index].update(point, false);
-            });
+              const chartData = data.values.map((value) => ({
+                y: Number(value),
+                color: getColorForValue(Number(value)),
+              }));
 
-            chart.redraw();
+              chartData.forEach((point, index) => {
+                chart.series[0].points[index].update(point, false);
+              });
+
+              chart.redraw();
+            } else {
+              console.log("Skipping outdated update", {
+                current: new Date(parseInt(lastUpdate)).toISOString(),
+                received: new Date(newTimestamp).toISOString(),
+              });
+            }
           }
         });
 
