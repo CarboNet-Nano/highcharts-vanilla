@@ -3,7 +3,6 @@ const pusher = require("./pusher");
 
 let latestValues = null;
 let lastUpdateTime = null;
-let latestMode = null;
 
 exports.handler = async (event, context) => {
   const startTime = performance.now();
@@ -35,11 +34,8 @@ exports.handler = async (event, context) => {
     const timestamp = new Date().toISOString();
     let shouldPushUpdate = false;
 
-    // Use provided mode or keep existing
-    const validMode =
-      body.mode === "dark" || body.mode === "light"
-        ? body.mode
-        : latestMode || "light";
+    // Simple mode handling
+    const mode = body.mode || "light";
 
     if (body.no_boost && body.no_makedown && body.makedown) {
       values = [
@@ -55,7 +51,6 @@ exports.handler = async (event, context) => {
 
       latestValues = values;
       lastUpdateTime = timestamp;
-      latestMode = validMode;
       shouldPushUpdate = true;
     } else {
       values = latestValues || [35.1, 46.3, 78.7];
@@ -71,7 +66,7 @@ exports.handler = async (event, context) => {
             type: "update",
             source,
             values,
-            mode: validMode,
+            mode,
             timestamp,
             lastUpdateTime,
           });
@@ -103,7 +98,7 @@ exports.handler = async (event, context) => {
         success: true,
         source,
         values,
-        mode: validMode,
+        mode,
         timestamp,
         lastUpdateTime,
         processingTime: endTime - startTime,

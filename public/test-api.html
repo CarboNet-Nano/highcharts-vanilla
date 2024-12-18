@@ -45,11 +45,13 @@
               labels: { style: { color: theme.text } },
               lineColor: theme.text,
               tickColor: theme.text,
+              gridLineWidth: 0,
             },
             yAxis: {
               labels: { style: { color: theme.text } },
               gridLineColor: theme.text,
               lineColor: theme.text,
+              gridLineWidth: 0,
             },
           });
         }
@@ -57,9 +59,8 @@
 
       async function fetchInitialData() {
         try {
-          const currentMode = document.body.classList.contains("theme-dark")
-            ? "dark"
-            : "light";
+          const urlParams = new URLSearchParams(window.location.search);
+          const mode = urlParams.get("mode") === "dark" ? "dark" : "light";
 
           const response = await fetch("/.netlify/functions/get-chart-values", {
             method: "POST",
@@ -68,7 +69,7 @@
             },
             body: JSON.stringify({
               type: "initial-load",
-              mode: currentMode,
+              mode: mode,
             }),
           });
 
@@ -115,6 +116,7 @@
           },
           xAxis: {
             categories: ["No Boost", "No Makedown", "Makedown"],
+            gridLineWidth: 0,
           },
           yAxis: {
             title: {
