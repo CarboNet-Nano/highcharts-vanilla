@@ -38,27 +38,71 @@
         return "#388E3C";
       }
 
-      async function fetchInitialData() {
+      async function verifyAndUpdateChart(chart) {
         try {
-          const storedData = localStorage.getItem("chartData");
-          const lastUpdate = localStorage.getItem("lastUpdateTime");
-
-          if (storedData && lastUpdate) {
-            // Check if stored data is less than 5 minutes old
-            const now = Date.now();
-            if (now - parseInt(lastUpdate) < 5 * 60 * 1000) {
-              console.log("Using stored data:", JSON.parse(storedData));
-              return JSON.parse(storedData);
-            }
-          }
-
           const response = await fetch("/.netlify/functions/get-chart-values", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              chartId: "test-chart",
+              no_boost: 35.1,
+              no_makedown: 46.3,
+              makedown: 78.7,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (data.success && data.values) {
+            const currentChartValues = chart.series[0].points.map(
+              (point) => point.y
+            );
+            const newValues = data.values;
+
+            // Check if values are different
+            const needsUpdate = currentChartValues.some(
+              (value, index) => Math.abs(value - newValues[index]) > 0.1
+            );
+
+            if (needsUpdate) {
+              console.log(
+                "Chart out of sync, updating with server values:",
+                newValues
+              );
+              const chartData = newValues.map((value) => ({
+                y: Number(value),
+                color: getColorForValue(Number(value)),
+              }));
+
+              chartData.forEach((point, index) => {
+                chart.series[0].points[index].update(point, false);
+              });
+
+              chart.redraw();
+              localStorage.setItem("chartData", JSON.stringify(newValues));
+              localStorage.setItem(
+                "lastUpdateTime",
+                new Date(data.timestamp).getTime()
+              );
+            }
+          }
+        } catch (error) {
+          console.error("Sync check failed:", error);
+        }
+      }
+
+      async function fetchInitialData() {
+        try {
+          const response = await fetch("/.netlify/functions/get-chart-values", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              no_boost: 35.1,
+              no_makedown: 46.3,
+              makedown: 78.7,
             }),
           });
 
@@ -126,6 +170,12 @@
           ],
         });
 
+        // Verify sync on creation
+        await verifyAndUpdateChart(chart);
+
+        // Set up periodic sync check (every 10 seconds)
+        setInterval(() => verifyAndUpdateChart(chart), 10000);
+
         channel.bind("value-update", function (data) {
           console.log("Pusher update received:", data);
           if (data.type === "update" && Array.isArray(data.values)) {
@@ -159,20 +209,7 @@
         window.addEventListener("resize", function () {
           clearTimeout(resizeTimeout);
           resizeTimeout = setTimeout(() => {
-            const storedData = localStorage.getItem("chartData");
-            if (storedData) {
-              const values = JSON.parse(storedData);
-              const chartData = values.map((value) => ({
-                y: Number(value),
-                color: getColorForValue(Number(value)),
-              }));
-
-              chart.setSize(container.clientWidth, container.clientHeight);
-
-              chartData.forEach((point, index) => {
-                chart.series[0].points[index].update(point, false);
-              });
-            }
+            chart.setSize(container.clientWidth, container.clientHeight);
             chart.redraw();
           }, 100);
         });
