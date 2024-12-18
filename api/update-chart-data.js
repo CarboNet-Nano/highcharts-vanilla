@@ -42,7 +42,6 @@ exports.handler = async (event, context) => {
 
     console.log("Sending to Pusher from update-chart-data:", validatedValues);
 
-    // Try Pusher trigger with retries
     let retries = 3;
     let lastError;
 
@@ -52,6 +51,7 @@ exports.handler = async (event, context) => {
           type: "update",
           source: "update-workflow",
           values: validatedValues,
+          mode: body.mode,
           timestamp: new Date().toISOString(),
         });
         break;
@@ -78,6 +78,7 @@ exports.handler = async (event, context) => {
         success: true,
         source: "update-workflow",
         values: validatedValues,
+        mode: body.mode,
         timestamp: new Date().toISOString(),
         processingTime: endTime - startTime,
       }),
