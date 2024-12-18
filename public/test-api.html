@@ -6,7 +6,7 @@
     <script src="https://js.pusher.com/8.0/pusher.min.js"></script>
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body class="theme-light">
+  <body>
     <div id="chart-container"></div>
 
     <script>
@@ -36,30 +36,104 @@
             },
           }[mode];
 
-          chart.update({
-            chart: {
-              backgroundColor: theme.background,
+          window.chart.update(
+            {
+              chart: {
+                backgroundColor: theme.background,
+                style: { color: theme.text },
+              },
+              xAxis: {
+                labels: { style: { color: theme.text } },
+                lineColor: theme.text,
+                tickColor: theme.text,
+                gridLineWidth: 0,
+              },
+              yAxis: {
+                labels: { style: { color: theme.text } },
+                gridLineColor: theme.text,
+                lineColor: theme.text,
+                gridLineWidth: 0,
+              },
+            },
+            true
+          );
+        }
+      }
+
+      async function createChart(initialValues, mode) {
+        const container = document.getElementById("chart-container");
+        const theme = {
+          light: {
+            background: "#ffffff",
+            text: "#000000",
+          },
+          dark: {
+            background: "#121212",
+            text: "#ffffff",
+          },
+        }[mode];
+
+        window.chart = Highcharts.chart(container, {
+          chart: {
+            type: "column",
+            animation: false,
+            height: container.clientHeight,
+            width: container.clientWidth,
+            backgroundColor: theme.background,
+            style: { color: theme.text },
+          },
+          title: {
+            text: null,
+          },
+          xAxis: {
+            categories: ["No Boost", "No Makedown", "Makedown"],
+            labels: { style: { color: theme.text } },
+            gridLineWidth: 0,
+            lineColor: theme.text,
+            tickColor: theme.text,
+          },
+          yAxis: {
+            title: {
+              text: "Percentage",
+            },
+            labels: {
+              format: "{value}%",
               style: { color: theme.text },
             },
-            xAxis: {
-              labels: { style: { color: theme.text } },
-              lineColor: theme.text,
-              tickColor: theme.text,
-              gridLineWidth: 0,
+            gridLineWidth: 0,
+            lineColor: theme.text,
+            gridLineColor: theme.text,
+          },
+          plotOptions: {
+            column: {
+              animation: false,
+              dataLabels: {
+                enabled: true,
+                format: "{y:.1f}%",
+                style: { color: theme.text },
+              },
             },
-            yAxis: {
-              labels: { style: { color: theme.text } },
-              gridLineColor: theme.text,
-              lineColor: theme.text,
-              gridLineWidth: 0,
+          },
+          series: [
+            {
+              name: "Values",
+              data: initialValues.map((value) => ({
+                y: value,
+                color: getColorForValue(value),
+              })),
             },
-          });
-        }
+          ],
+        });
+
+        updateTheme(mode);
       }
 
       async function fetchInitialData() {
         try {
-          const urlParams = new URLSearchParams(window.location.search);
+          console.log("URL:", window.location.href);
+          const urlParams = new URLSearchParams(
+            window.location.href.split("?")[1] || ""
+          );
           const mode = urlParams.get("mode") === "dark" ? "dark" : "light";
 
           const response = await fetch("/.netlify/functions/get-chart-values", {
@@ -84,75 +158,34 @@
                 new Date(data.timestamp).getTime()
               );
             }
-            if (data.mode) {
-              updateTheme(data.mode);
-            }
-            return data.values || [0, 0, 0];
+            return {
+              values: data.values || [0, 0, 0],
+              mode: mode,
+            };
           }
 
           const storedData = localStorage.getItem("chartData");
-          return storedData ? JSON.parse(storedData) : [0, 0, 0];
+          return {
+            values: storedData ? JSON.parse(storedData) : [0, 0, 0],
+            mode: mode,
+          };
         } catch (error) {
           console.error("Failed to fetch initial values:", error);
           const storedData = localStorage.getItem("chartData");
-          return storedData ? JSON.parse(storedData) : [0, 0, 0];
+          return {
+            values: storedData ? JSON.parse(storedData) : [0, 0, 0],
+            mode: "light",
+          };
         }
       }
 
-      async function createChart() {
-        const initialValues = await fetchInitialData();
-        console.log("Creating chart with values:", initialValues);
-
-        const container = document.getElementById("chart-container");
-        window.chart = Highcharts.chart(container, {
-          chart: {
-            type: "column",
-            animation: false,
-            height: container.clientHeight,
-            width: container.clientWidth,
-          },
-          title: {
-            text: null,
-          },
-          xAxis: {
-            categories: ["No Boost", "No Makedown", "Makedown"],
-            gridLineWidth: 0,
-          },
-          yAxis: {
-            title: {
-              text: "Percentage",
-            },
-            labels: {
-              format: "{value}%",
-            },
-            gridLineWidth: 0,
-          },
-          plotOptions: {
-            column: {
-              animation: false,
-              dataLabels: {
-                enabled: true,
-                format: "{y:.1f}%",
-              },
-            },
-          },
-          series: [
-            {
-              name: "Values",
-              data: initialValues.map((value) => ({
-                y: value,
-                color: getColorForValue(value),
-              })),
-            },
-          ],
-        });
+      async function init() {
+        const { values, mode } = await fetchInitialData();
+        await createChart(values, mode);
 
         channel.bind("value-update", function (data) {
           console.log("Pusher update received:", data);
-          if (data.source === "sync-check") {
-            console.log("Skipping sync-check message");
-            return;
-          }
+          if (data.source === "sync-check") return;
 
           if (data.type === "update" && Array.isArray(data.values)) {
             const lastUpdate = localStorage.getItem("lastUpdateTime");
@@ -168,19 +201,14 @@
               }));
 
               chartData.forEach((point, index) => {
-                chart.series[0].points[index].update(point, false);
+                window.chart.series[0].points[index].update(point, false);
               });
 
               if (data.mode) {
                 updateTheme(data.mode);
               }
 
-              chart.redraw();
-            } else {
-              console.log("Skipping outdated update", {
-                current: new Date(parseInt(lastUpdate)).toISOString(),
-                received: new Date(newTimestamp).toISOString(),
-              });
+              window.chart.redraw(true);
             }
           }
         });
@@ -189,13 +217,12 @@
         window.addEventListener("resize", function () {
           clearTimeout(resizeTimeout);
           resizeTimeout = setTimeout(() => {
-            chart.setSize(container.clientWidth, container.clientHeight);
-            chart.redraw();
+            window.chart.setSize(container.clientWidth, container.clientHeight);
           }, 100);
         });
       }
 
-      document.addEventListener("DOMContentLoaded", createChart);
+      document.addEventListener("DOMContentLoaded", init);
     </script>
   </body>
 </html>
