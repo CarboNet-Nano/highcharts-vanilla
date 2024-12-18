@@ -34,8 +34,8 @@ exports.handler = async (event, context) => {
     const timestamp = new Date().toISOString();
     let shouldPushUpdate = false;
 
-    // Simple mode handling
-    const mode = body.mode || "light";
+    // Strict mode validation
+    const mode = body.mode === "dark" ? "dark" : "light";
 
     if (body.no_boost && body.no_makedown && body.makedown) {
       values = [
@@ -66,7 +66,7 @@ exports.handler = async (event, context) => {
             type: "update",
             source,
             values,
-            mode,
+            mode: mode,
             timestamp,
             lastUpdateTime,
           });
@@ -98,7 +98,7 @@ exports.handler = async (event, context) => {
         success: true,
         source,
         values,
-        mode,
+        mode: mode,
         timestamp,
         lastUpdateTime,
         processingTime: endTime - startTime,
