@@ -39,7 +39,12 @@ exports.handler = async (event, context) => {
 
     // Initial load should use existing values
     if (body.type === "initial-load") {
-      values = latestValues || [35.1, 46.3, 78.7];
+      // values = latestValues || [35.1, 46.3, 78.7];
+      values = [
+        Number(body.no_boost),
+        Number(body.no_makedown),
+        Number(body.makedown),
+      ];
       console.log("Processing values:", { values, source, timestamp });
       return {
         statusCode: 200,
