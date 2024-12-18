@@ -26,31 +26,11 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     console.log("Received initial data request with body:", body);
 
-    // Check if we have the required data
-    if (!body.no_boost || !body.no_makedown || !body.makedown) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          success: false,
-          message: "Missing required values",
-          receivedBody: event.body,
-        }),
-      };
-    }
+    // If this is a sync check, we should return current values from the source of truth
+    // This would be your actual data source - for now using default values
+    const currentValues = [35.1, 46.3, 78.7]; // These should come from your actual data source
 
-    const values = [
-      Number(body.no_boost),
-      Number(body.no_makedown),
-      Number(body.makedown),
-    ].map((value) => {
-      if (isNaN(value)) {
-        throw new Error(`Invalid number: ${value}`);
-      }
-      return Number(value.toFixed(1));
-    });
-
-    console.log("Sending to Pusher from get-chart-values:", values);
+    console.log("Sending current values:", currentValues);
 
     const timestamp = new Date().toISOString();
 
@@ -62,10 +42,9 @@ exports.handler = async (event, context) => {
       try {
         await pusher.trigger("chart-updates", "value-update", {
           type: "update",
-          source: "initial-load",
-          values,
+          source: "sync-check",
+          values: currentValues,
           timestamp,
-          rawBody: body,
         });
         break;
       } catch (error) {
@@ -89,11 +68,10 @@ exports.handler = async (event, context) => {
       headers,
       body: JSON.stringify({
         success: true,
-        source: "initial-load",
-        values,
+        source: "sync-check",
+        values: currentValues,
         timestamp,
         processingTime: endTime - startTime,
-        rawBody: body,
       }),
     };
   } catch (error) {
