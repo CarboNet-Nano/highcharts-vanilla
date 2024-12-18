@@ -1,7 +1,6 @@
 const { performance } = require("perf_hooks");
 const pusher = require("./pusher");
 
-// Store latest values globally
 let latestValues = null;
 let lastUpdateTime = null;
 let latestMode = null;
@@ -36,6 +35,12 @@ exports.handler = async (event, context) => {
     const timestamp = new Date().toISOString();
     let shouldPushUpdate = false;
 
+    // Use provided mode or keep existing
+    const validMode =
+      body.mode === "dark" || body.mode === "light"
+        ? body.mode
+        : latestMode || "light";
+
     if (body.no_boost && body.no_makedown && body.makedown) {
       values = [
         Number(body.no_boost),
@@ -50,15 +55,11 @@ exports.handler = async (event, context) => {
 
       latestValues = values;
       lastUpdateTime = timestamp;
-      if (body.mode && ["light", "dark"].includes(body.mode)) {
-        latestMode = body.mode;
-      }
+      latestMode = validMode;
       shouldPushUpdate = true;
     } else {
       values = latestValues || [35.1, 46.3, 78.7];
     }
-
-    console.log("Processing values:", { values, source, timestamp });
 
     if (shouldPushUpdate) {
       let retries = 3;
@@ -70,7 +71,7 @@ exports.handler = async (event, context) => {
             type: "update",
             source,
             values,
-            mode: latestMode,
+            mode: validMode,
             timestamp,
             lastUpdateTime,
           });
@@ -102,7 +103,7 @@ exports.handler = async (event, context) => {
         success: true,
         source,
         values,
-        mode: latestMode,
+        mode: validMode,
         timestamp,
         lastUpdateTime,
         processingTime: endTime - startTime,
