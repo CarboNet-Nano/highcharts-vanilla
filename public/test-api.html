@@ -38,62 +38,6 @@
         return "#388E3C";
       }
 
-      async function verifyAndUpdateChart(chart) {
-        try {
-          // Get current chart values
-          const currentValues = chart.series[0].points.map((point) => point.y);
-
-          const response = await fetch("/.netlify/functions/get-chart-values", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              type: "sync-check",
-              values: currentValues,
-            }),
-          });
-
-          const data = await response.json();
-
-          if (data.success && data.values) {
-            const currentChartValues = chart.series[0].points.map(
-              (point) => point.y
-            );
-            const newValues = data.values;
-
-            // Check if values are different
-            const needsUpdate = currentChartValues.some(
-              (value, index) => Math.abs(value - newValues[index]) > 0.1
-            );
-
-            if (needsUpdate) {
-              console.log(
-                "Chart out of sync, updating with server values:",
-                newValues
-              );
-              const chartData = newValues.map((value) => ({
-                y: Number(value),
-                color: getColorForValue(Number(value)),
-              }));
-
-              chartData.forEach((point, index) => {
-                chart.series[0].points[index].update(point, false);
-              });
-
-              chart.redraw();
-              localStorage.setItem("chartData", JSON.stringify(newValues));
-              localStorage.setItem(
-                "lastUpdateTime",
-                new Date(data.timestamp).getTime()
-              );
-            }
-          }
-        } catch (error) {
-          console.error("Sync check failed:", error);
-        }
-      }
-
       async function fetchInitialData() {
         try {
           const response = await fetch("/.netlify/functions/get-chart-values", {
@@ -174,8 +118,15 @@
           ],
         });
 
+        // Only handle non-sync messages from Pusher
         channel.bind("value-update", function (data) {
           console.log("Pusher update received:", data);
+          // Skip if this is a sync-check message
+          if (data.source === "sync-check") {
+            console.log("Skipping sync-check message");
+            return;
+          }
+
           if (data.type === "update" && Array.isArray(data.values)) {
             const lastUpdate = localStorage.getItem("lastUpdateTime");
             const newTimestamp = new Date(data.timestamp).getTime();
