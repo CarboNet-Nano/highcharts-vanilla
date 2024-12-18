@@ -37,6 +37,25 @@ exports.handler = async (event, context) => {
     // Keep original mode from request
     const mode = body.mode || "light";
 
+    // Initial load should use existing values
+    if (body.type === "initial-load") {
+      values = latestValues || [35.1, 46.3, 78.7];
+      console.log("Processing values:", { values, source, timestamp });
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          success: true,
+          source,
+          values,
+          mode,
+          timestamp,
+          lastUpdateTime,
+        }),
+      };
+    }
+
+    // Handle value updates
     if (body.no_boost && body.no_makedown && body.makedown) {
       values = [
         Number(body.no_boost),
@@ -52,47 +71,42 @@ exports.handler = async (event, context) => {
       latestValues = values;
       lastUpdateTime = timestamp;
       shouldPushUpdate = true;
-    } else {
-      values = latestValues || [35.1, 46.3, 78.7];
-    }
 
-    console.log("Processing values:", { values, source, timestamp });
+      if (shouldPushUpdate) {
+        let retries = 3;
+        let lastError;
 
-    if (shouldPushUpdate) {
-      let retries = 3;
-      let lastError;
-
-      while (retries > 0) {
-        try {
-          await pusher.trigger("chart-updates", "value-update", {
-            type: "update",
-            source,
-            values,
-            mode,
-            timestamp,
-            lastUpdateTime,
-          });
-          break;
-        } catch (error) {
-          lastError = error;
-          retries--;
-          if (retries > 0) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
+        while (retries > 0) {
+          try {
+            await pusher.trigger("chart-updates", "value-update", {
+              type: "update",
+              source,
+              values,
+              mode,
+              timestamp,
+              lastUpdateTime,
+            });
+            break;
+          } catch (error) {
+            lastError = error;
+            retries--;
+            if (retries > 0) {
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+            }
           }
         }
-      }
 
-      if (retries === 0) {
-        console.error(
-          "Failed to send Pusher message after retries:",
-          lastError
-        );
-        throw lastError;
+        if (retries === 0) {
+          console.error(
+            "Failed to send Pusher message after retries:",
+            lastError
+          );
+          throw lastError;
+        }
       }
     }
 
     const endTime = performance.now();
-
     return {
       statusCode: 200,
       headers,
