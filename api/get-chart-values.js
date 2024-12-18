@@ -34,7 +34,7 @@ exports.handler = async (event, context) => {
     let source = body.type || "unknown";
     const timestamp = new Date().toISOString();
 
-    // If this is a data update, process and store new values
+    // If this is a data update with full values, process and store them
     if (body.no_boost && body.no_makedown && body.makedown) {
       values = [
         Number(body.no_boost),
@@ -51,9 +51,21 @@ exports.handler = async (event, context) => {
       latestValues = values;
       lastUpdateTime = timestamp;
     }
-    // If this is a sync check or initial load, return latest known values
-    else if (body.type === "sync-check" || body.type === "initial-load") {
-      values = latestValues || [35.1, 46.3, 78.7]; // Use defaults only if no updates received
+    // For sync checks, use provided values if they exist
+    else if (body.values && Array.isArray(body.values)) {
+      values = body.values.map((value) => Number(value.toFixed(1)));
+      // Update stored values if they're different
+      if (
+        !latestValues ||
+        values.some((v, i) => Math.abs(v - latestValues[i]) > 0.1)
+      ) {
+        latestValues = values;
+        lastUpdateTime = timestamp;
+      }
+    }
+    // For initial load or if no values provided, use latest known values
+    else {
+      values = latestValues || [35.1, 46.3, 78.7];
     }
 
     console.log("Processing values:", { values, source, timestamp });
