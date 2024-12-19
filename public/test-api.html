@@ -5,6 +5,14 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://js.pusher.com/8.0/pusher.min.js"></script>
     <link rel="stylesheet" href="styles.css" />
+    <script>
+      // Set initial theme based on URL immediately
+      const urlParams = new URLSearchParams(
+        window.location.href.split("?")[1] || ""
+      );
+      const initialMode = urlParams.get("mode") === "dark" ? "dark" : "light";
+      document.documentElement.className = `theme-${initialMode}`;
+    </script>
   </head>
   <body>
     <div id="chart-container"></div>
@@ -15,6 +23,7 @@
       });
 
       const channel = pusher.subscribe("chart-updates");
+      let chartInitialized = false;
 
       function getColorForValue(value) {
         if (value <= 15) return "#D32F2F";
@@ -23,7 +32,7 @@
       }
 
       function updateTheme(mode) {
-        document.body.className = `theme-${mode}`;
+        document.documentElement.className = `theme-${mode}`;
         if (window.chart) {
           const theme = {
             light: {
@@ -61,6 +70,9 @@
       }
 
       async function createChart(initialValues, mode) {
+        if (chartInitialized) return;
+        chartInitialized = true;
+
         const container = document.getElementById("chart-container");
         const theme = {
           light: {
@@ -124,18 +136,10 @@
             },
           ],
         });
-
-        updateTheme(mode);
       }
 
       async function fetchInitialData() {
         try {
-          console.log("URL:", window.location.href);
-          const urlParams = new URLSearchParams(
-            window.location.href.split("?")[1] || ""
-          );
-          const mode = urlParams.get("mode") === "dark" ? "dark" : "light";
-
           const response = await fetch("/.netlify/functions/get-chart-values", {
             method: "POST",
             headers: {
@@ -143,7 +147,7 @@
             },
             body: JSON.stringify({
               type: "initial-load",
-              mode: mode,
+              mode: initialMode,
             }),
           });
 
@@ -160,21 +164,21 @@
             }
             return {
               values: data.values || [0, 0, 0],
-              mode: data.mode || mode,
+              mode: data.mode || initialMode,
             };
           }
 
           const storedData = localStorage.getItem("chartData");
           return {
             values: storedData ? JSON.parse(storedData) : [0, 0, 0],
-            mode: mode,
+            mode: initialMode,
           };
         } catch (error) {
           console.error("Failed to fetch initial values:", error);
           const storedData = localStorage.getItem("chartData");
           return {
             values: storedData ? JSON.parse(storedData) : [0, 0, 0],
-            mode: "light",
+            mode: initialMode,
           };
         }
       }
