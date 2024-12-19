@@ -27,23 +27,30 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     console.log("Received update request:", body);
 
-    // Keep original mode from request
-    const mode = body.mode || "light";
+    // Strict mode validation
+    const mode =
+      body.mode === "dark" || body.mode === "light" ? body.mode : "light";
+    const timestamp = new Date().toISOString();
 
-    const values = [
-      Number(body.no_boost),
-      Number(body.no_makedown),
-      Number(body.makedown),
-    ];
+    // Check if this is a value update or mode-only update
+    let values = null;
+    if (body.no_boost && body.no_makedown && body.makedown) {
+      values = [
+        Number(body.no_boost),
+        Number(body.no_makedown),
+        Number(body.makedown),
+      ].map((value) => {
+        if (isNaN(value)) {
+          throw new Error(`Invalid number: ${value}`);
+        }
+        return Number(value.toFixed(1));
+      });
+    }
 
-    const validatedValues = values.map((value) => {
-      if (isNaN(value)) {
-        throw new Error(`Invalid number: ${value}`);
-      }
-      return Number(value.toFixed(1));
-    });
-
-    console.log("Sending to Pusher from update-chart-data:", validatedValues);
+    console.log(
+      "Sending to Pusher from update-chart-data:",
+      values || "mode-only update"
+    );
 
     let retries = 3;
     let lastError;
@@ -53,9 +60,9 @@ exports.handler = async (event, context) => {
         await pusher.trigger("chart-updates", "value-update", {
           type: "update",
           source: "update-workflow",
-          values: validatedValues,
+          ...(values && { values }),
           mode,
-          timestamp: new Date().toISOString(),
+          timestamp,
         });
         break;
       } catch (error) {
@@ -80,9 +87,9 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         success: true,
         source: "update-workflow",
-        values: validatedValues,
+        ...(values && { values }),
         mode,
-        timestamp: new Date().toISOString(),
+        timestamp,
         processingTime: endTime - startTime,
       }),
     };
