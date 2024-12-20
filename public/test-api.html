@@ -5,14 +5,6 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://js.pusher.com/8.0/pusher.min.js"></script>
     <link rel="stylesheet" href="styles.css" />
-    <script>
-      // Set initial theme based on URL immediately
-      const urlParams = new URLSearchParams(
-        window.location.href.split("?")[1] || ""
-      );
-      const pageMode = urlParams.get("mode") === "dark" ? "dark" : "light";
-      document.documentElement.className = `theme-${pageMode}`;
-    </script>
   </head>
   <body>
     <div id="chart-container"></div>
@@ -20,6 +12,14 @@
     <script>
       let chartInstance = null;
       let isInitialized = false;
+
+      // Get mode from URL and store it
+      const urlParams = new URLSearchParams(
+        window.location.href.split("?")[1] || ""
+      );
+      const initialMode = urlParams.get("mode") === "dark" ? "dark" : "light";
+      localStorage.setItem("chartMode", initialMode);
+      document.documentElement.className = `theme-${initialMode}`;
 
       const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
         cluster: "us3",
@@ -34,54 +34,61 @@
       }
 
       function updateTheme(mode) {
-        document.documentElement.className = `theme-${mode}`;
-        if (chartInstance) {
-          const theme = {
-            light: {
-              background: "#ffffff",
-              text: "#000000",
-            },
-            dark: {
-              background: "#121212",
-              text: "#ffffff",
-            },
-          }[mode];
+        // Only update if mode is valid and different
+        if (
+          (mode === "dark" || mode === "light") &&
+          mode !== localStorage.getItem("chartMode")
+        ) {
+          document.documentElement.className = `theme-${mode}`;
+          localStorage.setItem("chartMode", mode);
 
-          chartInstance.update(
-            {
-              chart: {
-                backgroundColor: theme.background,
-                style: { color: theme.text },
+          if (chartInstance) {
+            const theme = {
+              light: {
+                background: "#ffffff",
+                text: "#000000",
               },
-              xAxis: {
-                labels: { style: { color: theme.text } },
-                lineColor: theme.text,
-                tickColor: theme.text,
-                gridLineWidth: 0,
+              dark: {
+                background: "#121212",
+                text: "#ffffff",
               },
-              yAxis: {
-                labels: { style: { color: theme.text } },
-                gridLineColor: theme.text,
-                lineColor: theme.text,
-                gridLineWidth: 0,
-              },
-              plotOptions: {
-                column: {
-                  dataLabels: {
-                    style: { color: theme.text },
+            }[mode];
+
+            chartInstance.update(
+              {
+                chart: {
+                  backgroundColor: theme.background,
+                  style: { color: theme.text },
+                },
+                xAxis: {
+                  labels: { style: { color: theme.text } },
+                  lineColor: theme.text,
+                  tickColor: theme.text,
+                  gridLineWidth: 0,
+                },
+                yAxis: {
+                  labels: { style: { color: theme.text } },
+                  gridLineColor: theme.text,
+                  lineColor: theme.text,
+                  gridLineWidth: 0,
+                },
+                plotOptions: {
+                  column: {
+                    dataLabels: {
+                      style: { color: theme.text },
+                    },
                   },
                 },
               },
-            },
-            true
-          );
+              true
+            );
+          }
         }
       }
 
       function createChart(initialValues, mode) {
         if (chartInstance) return;
 
-        const container = document.getElementById("chart-container");
         const theme = {
           light: {
             background: "#ffffff",
@@ -93,6 +100,7 @@
           },
         }[mode];
 
+        const container = document.getElementById("chart-container");
         chartInstance = Highcharts.chart(container, {
           chart: {
             type: "column",
@@ -157,7 +165,7 @@
             },
             body: JSON.stringify({
               type: "initial-load",
-              mode: pageMode,
+              mode: localStorage.getItem("chartMode"),
             }),
           });
 
@@ -172,7 +180,7 @@
             );
             return {
               values: data.values,
-              mode: pageMode, // Always use URL mode for initial render
+              mode: localStorage.getItem("chartMode"), // Always use stored mode
             };
           }
 
@@ -182,7 +190,7 @@
           const storedData = localStorage.getItem("chartData");
           return {
             values: storedData ? JSON.parse(storedData) : [0, 0, 0],
-            mode: pageMode,
+            mode: localStorage.getItem("chartMode"),
           };
         }
       }
