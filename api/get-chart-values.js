@@ -2,9 +2,28 @@ const { performance } = require("perf_hooks");
 const pusher = require("./pusher");
 
 let latestValues = [35.1, 46.3, 78.7];
+let lastCallTime = 0;
+const DEBOUNCE_WAIT = 100; // ms
 
 exports.handler = async (event, context) => {
   const startTime = performance.now();
+  const currentTime = Date.now();
+
+  // If this call came too soon after the last one, skip it
+  if (currentTime - lastCallTime < DEBOUNCE_WAIT) {
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+      },
+      body: JSON.stringify({
+        success: true,
+        message: "Debounced",
+      }),
+    };
+  }
+  lastCallTime = currentTime;
+
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
