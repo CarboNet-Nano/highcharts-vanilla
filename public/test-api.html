@@ -13,13 +13,28 @@
       let chartInstance = null;
       let isInitialized = false;
 
-      // Get mode from URL and store it
-      const urlParams = new URLSearchParams(
-        window.location.href.split("?")[1] || ""
-      );
-      const initialMode = urlParams.get("mode") === "dark" ? "dark" : "light";
-      localStorage.setItem("chartMode", initialMode);
-      document.documentElement.className = `theme-${initialMode}`;
+      // Parse URL for mode before anything else
+      function getInitialMode() {
+        try {
+          const url = new URL(window.location.href);
+          const params = new URLSearchParams(url.search);
+          const mode = params.get("mode");
+
+          if (mode === "dark" || mode === "light") {
+            return mode;
+          }
+          return null;
+        } catch (error) {
+          console.error("Error parsing URL:", error);
+          return null;
+        }
+      }
+
+      // Only proceed with initialization if we have a valid mode
+      const pageMode = getInitialMode();
+      if (pageMode) {
+        document.documentElement.className = `theme-${pageMode}`;
+      }
 
       const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
         cluster: "us3",
@@ -34,60 +49,54 @@
       }
 
       function updateTheme(mode) {
-        // Only update if mode is valid and different
-        if (
-          (mode === "dark" || mode === "light") &&
-          mode !== localStorage.getItem("chartMode")
-        ) {
-          document.documentElement.className = `theme-${mode}`;
-          localStorage.setItem("chartMode", mode);
+        if (mode !== "dark" && mode !== "light") return;
 
-          if (chartInstance) {
-            const theme = {
-              light: {
-                background: "#ffffff",
-                text: "#000000",
-              },
-              dark: {
-                background: "#121212",
-                text: "#ffffff",
-              },
-            }[mode];
+        document.documentElement.className = `theme-${mode}`;
+        if (chartInstance) {
+          const theme = {
+            light: {
+              background: "#ffffff",
+              text: "#000000",
+            },
+            dark: {
+              background: "#121212",
+              text: "#ffffff",
+            },
+          }[mode];
 
-            chartInstance.update(
-              {
-                chart: {
-                  backgroundColor: theme.background,
-                  style: { color: theme.text },
-                },
-                xAxis: {
-                  labels: { style: { color: theme.text } },
-                  lineColor: theme.text,
-                  tickColor: theme.text,
-                  gridLineWidth: 0,
-                },
-                yAxis: {
-                  labels: { style: { color: theme.text } },
-                  gridLineColor: theme.text,
-                  lineColor: theme.text,
-                  gridLineWidth: 0,
-                },
-                plotOptions: {
-                  column: {
-                    dataLabels: {
-                      style: { color: theme.text },
-                    },
+          chartInstance.update(
+            {
+              chart: {
+                backgroundColor: theme.background,
+                style: { color: theme.text },
+              },
+              xAxis: {
+                labels: { style: { color: theme.text } },
+                lineColor: theme.text,
+                tickColor: theme.text,
+                gridLineWidth: 0,
+              },
+              yAxis: {
+                labels: { style: { color: theme.text } },
+                gridLineColor: theme.text,
+                lineColor: theme.text,
+                gridLineWidth: 0,
+              },
+              plotOptions: {
+                column: {
+                  dataLabels: {
+                    style: { color: theme.text },
                   },
                 },
               },
-              true
-            );
-          }
+            },
+            true
+          );
         }
       }
 
       function createChart(initialValues, mode) {
-        if (chartInstance) return;
+        if (chartInstance || !mode) return;
 
         const theme = {
           light: {
@@ -155,7 +164,7 @@
       }
 
       async function fetchInitialData() {
-        if (isInitialized) return null;
+        if (isInitialized || !pageMode) return null;
 
         try {
           const response = await fetch("/.netlify/functions/get-chart-values", {
@@ -165,7 +174,7 @@
             },
             body: JSON.stringify({
               type: "initial-load",
-              mode: localStorage.getItem("chartMode"),
+              mode: pageMode,
             }),
           });
 
@@ -180,7 +189,7 @@
             );
             return {
               values: data.values,
-              mode: localStorage.getItem("chartMode"), // Always use stored mode
+              mode: pageMode,
             };
           }
 
@@ -190,13 +199,13 @@
           const storedData = localStorage.getItem("chartData");
           return {
             values: storedData ? JSON.parse(storedData) : [0, 0, 0],
-            mode: localStorage.getItem("chartMode"),
+            mode: pageMode,
           };
         }
       }
 
       async function init() {
-        if (isInitialized) return;
+        if (isInitialized || !pageMode) return;
 
         const data = await fetchInitialData();
         if (data) {
@@ -248,7 +257,10 @@
         });
       }
 
-      document.addEventListener("DOMContentLoaded", init);
+      // Only initialize if we have a valid mode
+      if (pageMode) {
+        document.addEventListener("DOMContentLoaded", init);
+      }
     </script>
   </body>
 </html>
