@@ -1,7 +1,7 @@
 const { performance } = require("perf_hooks");
 const pusher = require("./pusher");
 
-let latestValues = null;
+let latestValues = [35.1, 46.3, 78.7]; // Default values
 let lastUpdateTime = null;
 
 exports.handler = async (event, context) => {
@@ -29,24 +29,19 @@ exports.handler = async (event, context) => {
     const body = JSON.parse(event.body);
     console.log("Received request:", body);
 
-    let values;
     let source = body.type || "update";
     const timestamp = new Date().toISOString();
-    let shouldPushUpdate = false;
 
-    // Keep original mode from request
     const mode = body.mode || "light";
 
-    // Initial load should use existing values
     if (body.type === "initial-load") {
-      console.log("Processing values:", { values, source, timestamp });
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
           success: true,
           source,
-          values,
+          values: latestValues,
           mode,
           timestamp,
           lastUpdateTime,
@@ -54,9 +49,8 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Handle value updates
     if (body.no_boost && body.no_makedown && body.makedown) {
-      values = [
+      latestValues = [
         Number(body.no_boost),
         Number(body.no_makedown),
         Number(body.makedown),
@@ -66,43 +60,7 @@ exports.handler = async (event, context) => {
         }
         return Number(value.toFixed(1));
       });
-
-      latestValues = values;
       lastUpdateTime = timestamp;
-      shouldPushUpdate = true;
-
-      if (shouldPushUpdate) {
-        let retries = 3;
-        let lastError;
-
-        while (retries > 0) {
-          try {
-            await pusher.trigger("chart-updates", "value-update", {
-              type: "update",
-              source,
-              values,
-              mode,
-              timestamp,
-              lastUpdateTime,
-            });
-            break;
-          } catch (error) {
-            lastError = error;
-            retries--;
-            if (retries > 0) {
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-            }
-          }
-        }
-
-        if (retries === 0) {
-          console.error(
-            "Failed to send Pusher message after retries:",
-            lastError
-          );
-          throw lastError;
-        }
-      }
     }
 
     const endTime = performance.now();
@@ -112,7 +70,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         success: true,
         source,
-        values,
+        values: latestValues,
         mode,
         timestamp,
         lastUpdateTime,

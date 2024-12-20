@@ -18,12 +18,13 @@
     <div id="chart-container"></div>
 
     <script>
+      let chartInstance = null;
+
       const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
         cluster: "us3",
       });
 
       const channel = pusher.subscribe("chart-updates");
-      let chartInitialized = false;
 
       function getColorForValue(value) {
         if (value <= 15) return "#D32F2F";
@@ -33,7 +34,7 @@
 
       function updateTheme(mode) {
         document.documentElement.className = `theme-${mode}`;
-        if (window.chart) {
+        if (chartInstance) {
           const theme = {
             light: {
               background: "#ffffff",
@@ -45,7 +46,7 @@
             },
           }[mode];
 
-          window.chart.update(
+          chartInstance.update(
             {
               chart: {
                 backgroundColor: theme.background,
@@ -63,16 +64,20 @@
                 lineColor: theme.text,
                 gridLineWidth: 0,
               },
+              plotOptions: {
+                column: {
+                  dataLabels: {
+                    style: { color: theme.text },
+                  },
+                },
+              },
             },
             true
           );
         }
       }
 
-      async function createChart(initialValues, mode) {
-        if (chartInitialized) return;
-        chartInitialized = true;
-
+      function createChart(initialValues, mode) {
         const container = document.getElementById("chart-container");
         const theme = {
           light: {
@@ -85,7 +90,7 @@
           },
         }[mode];
 
-        window.chart = Highcharts.chart(container, {
+        chartInstance = Highcharts.chart(container, {
           chart: {
             type: "column",
             animation: false,
@@ -154,25 +159,19 @@
           const data = await response.json();
           console.log("Initial data received:", data);
 
-          if (data.success) {
-            if (data.values) {
-              localStorage.setItem("chartData", JSON.stringify(data.values));
-              localStorage.setItem(
-                "lastUpdateTime",
-                new Date(data.timestamp).getTime()
-              );
-            }
+          if (data.success && data.values) {
+            localStorage.setItem("chartData", JSON.stringify(data.values));
+            localStorage.setItem(
+              "lastUpdateTime",
+              new Date(data.timestamp).getTime()
+            );
             return {
-              values: data.values || [0, 0, 0],
+              values: data.values,
               mode: data.mode || initialMode,
             };
           }
 
-          const storedData = localStorage.getItem("chartData");
-          return {
-            values: storedData ? JSON.parse(storedData) : [0, 0, 0],
-            mode: initialMode,
-          };
+          throw new Error("Invalid data received");
         } catch (error) {
           console.error("Failed to fetch initial values:", error);
           const storedData = localStorage.getItem("chartData");
@@ -185,34 +184,36 @@
 
       async function init() {
         const { values, mode } = await fetchInitialData();
-        await createChart(values, mode);
+        createChart(values, mode);
 
         channel.bind("value-update", function (data) {
           console.log("Pusher update received:", data);
           if (data.source === "sync-check") return;
 
-          if (data.type === "update" && Array.isArray(data.values)) {
+          if (data.type === "update") {
             const lastUpdate = localStorage.getItem("lastUpdateTime");
             const newTimestamp = new Date(data.timestamp).getTime();
 
             if (!lastUpdate || newTimestamp > parseInt(lastUpdate)) {
-              localStorage.setItem("chartData", JSON.stringify(data.values));
-              localStorage.setItem("lastUpdateTime", newTimestamp);
+              if (data.values) {
+                localStorage.setItem("chartData", JSON.stringify(data.values));
+                localStorage.setItem("lastUpdateTime", newTimestamp);
 
-              const chartData = data.values.map((value) => ({
-                y: Number(value),
-                color: getColorForValue(Number(value)),
-              }));
+                const chartData = data.values.map((value) => ({
+                  y: Number(value),
+                  color: getColorForValue(Number(value)),
+                }));
 
-              chartData.forEach((point, index) => {
-                window.chart.series[0].points[index].update(point, false);
-              });
+                chartData.forEach((point, index) => {
+                  chartInstance.series[0].points[index].update(point, false);
+                });
+
+                chartInstance.redraw(true);
+              }
 
               if (data.mode) {
                 updateTheme(data.mode);
               }
-
-              window.chart.redraw(true);
             }
           }
         });
@@ -221,7 +222,10 @@
         window.addEventListener("resize", function () {
           clearTimeout(resizeTimeout);
           resizeTimeout = setTimeout(() => {
-            window.chart.setSize(container.clientWidth, container.clientHeight);
+            chartInstance.setSize(
+              container.clientWidth,
+              container.clientHeight
+            );
           }, 100);
         });
       }
