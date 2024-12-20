@@ -5,20 +5,20 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://js.pusher.com/8.0/pusher.min.js"></script>
     <link rel="stylesheet" href="styles.css" />
-    <script>
-      // Set initial theme based on URL immediately
-      const urlParams = new URLSearchParams(
-        window.location.href.split("?")[1] || ""
-      );
-      const initialMode = urlParams.get("mode") === "dark" ? "dark" : "light";
-      document.documentElement.className = `theme-${initialMode}`;
-    </script>
   </head>
   <body>
     <div id="chart-container"></div>
 
     <script>
       let chartInstance = null;
+      let isInitialized = false;
+
+      // Get mode from URL once
+      const urlParams = new URLSearchParams(
+        window.location.href.split("?")[1] || ""
+      );
+      const pageMode = urlParams.get("mode") === "dark" ? "dark" : "light";
+      document.documentElement.className = `theme-${pageMode}`;
 
       const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
         cluster: "us3",
@@ -78,6 +78,8 @@
       }
 
       function createChart(initialValues, mode) {
+        if (chartInstance) return; // Prevent recreation
+
         const container = document.getElementById("chart-container");
         const theme = {
           light: {
@@ -144,6 +146,8 @@
       }
 
       async function fetchInitialData() {
+        if (isInitialized) return null; // Prevent double fetch
+
         try {
           const response = await fetch("/.netlify/functions/get-chart-values", {
             method: "POST",
@@ -152,7 +156,7 @@
             },
             body: JSON.stringify({
               type: "initial-load",
-              mode: initialMode,
+              mode: pageMode,
             }),
           });
 
@@ -167,7 +171,7 @@
             );
             return {
               values: data.values,
-              mode: data.mode || initialMode,
+              mode: data.mode || pageMode,
             };
           }
 
@@ -177,14 +181,19 @@
           const storedData = localStorage.getItem("chartData");
           return {
             values: storedData ? JSON.parse(storedData) : [0, 0, 0],
-            mode: initialMode,
+            mode: pageMode,
           };
         }
       }
 
       async function init() {
-        const { values, mode } = await fetchInitialData();
-        createChart(values, mode);
+        if (isInitialized) return; // Prevent double initialization
+
+        const data = await fetchInitialData();
+        if (data) {
+          createChart(data.values, data.mode);
+          isInitialized = true;
+        }
 
         channel.bind("value-update", function (data) {
           console.log("Pusher update received:", data);
