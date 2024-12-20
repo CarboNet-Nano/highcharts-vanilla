@@ -5,6 +5,14 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://js.pusher.com/8.0/pusher.min.js"></script>
     <link rel="stylesheet" href="styles.css" />
+    <script>
+      // Set initial theme based on URL immediately
+      const urlParams = new URLSearchParams(
+        window.location.href.split("?")[1] || ""
+      );
+      const pageMode = urlParams.get("mode") === "dark" ? "dark" : "light";
+      document.documentElement.className = `theme-${pageMode}`;
+    </script>
   </head>
   <body>
     <div id="chart-container"></div>
@@ -12,13 +20,6 @@
     <script>
       let chartInstance = null;
       let isInitialized = false;
-
-      // Get mode from URL once
-      const urlParams = new URLSearchParams(
-        window.location.href.split("?")[1] || ""
-      );
-      const pageMode = urlParams.get("mode") === "dark" ? "dark" : "light";
-      document.documentElement.className = `theme-${pageMode}`;
 
       const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
         cluster: "us3",
@@ -78,7 +79,7 @@
       }
 
       function createChart(initialValues, mode) {
-        if (chartInstance) return; // Prevent recreation
+        if (chartInstance) return;
 
         const container = document.getElementById("chart-container");
         const theme = {
@@ -146,7 +147,7 @@
       }
 
       async function fetchInitialData() {
-        if (isInitialized) return null; // Prevent double fetch
+        if (isInitialized) return null;
 
         try {
           const response = await fetch("/.netlify/functions/get-chart-values", {
@@ -171,7 +172,7 @@
             );
             return {
               values: data.values,
-              mode: data.mode || pageMode,
+              mode: pageMode, // Always use URL mode for initial render
             };
           }
 
@@ -187,7 +188,7 @@
       }
 
       async function init() {
-        if (isInitialized) return; // Prevent double initialization
+        if (isInitialized) return;
 
         const data = await fetchInitialData();
         if (data) {
