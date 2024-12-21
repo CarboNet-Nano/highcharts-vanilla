@@ -31,7 +31,7 @@ export const stateManager = {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          chartId: "test-chart",
+          type: "initial-load",
         }),
       });
 
