@@ -18,7 +18,7 @@ exports.handler = async (event, context) => {
     console.log("===================");
 
     // Use the values and mode from the request payload
-    const { no_boost, no_makedown, makedown, mode } = body;
+    const { no_boost, no_makedown, makedown, mode, glide_source } = body;
 
     const values = [
       Number(no_boost),
@@ -40,7 +40,7 @@ exports.handler = async (event, context) => {
         values,
         mode,
         timestamp,
-        request_source: body.glide_source || body.source || "unknown",
+        request_source: glide_source || body.source || "unknown",
       }),
     };
   } catch (error) {

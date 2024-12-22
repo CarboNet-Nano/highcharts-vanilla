@@ -83,51 +83,7 @@
           document.documentElement.className = `theme-${mode}`;
 
           const chartInstance = Highcharts.chart(container, {
-            chart: {
-              type: "column",
-              animation: false,
-              height: container.clientHeight || 300,
-              width: container.clientWidth || 400,
-              backgroundColor: theme.background,
-              style: { color: theme.text },
-            },
-            title: { text: null },
-            xAxis: {
-              categories: ["No Boost", "No Makedown", "Makedown"],
-              labels: { style: { color: theme.text } },
-              gridLineWidth: 0,
-              lineColor: theme.text,
-              tickColor: theme.text,
-            },
-            yAxis: {
-              title: { text: "Percentage" },
-              labels: {
-                format: "{value}%",
-                style: { color: theme.text },
-              },
-              gridLineWidth: 0,
-              lineColor: theme.text,
-              gridLineColor: theme.text,
-            },
-            plotOptions: {
-              column: {
-                animation: false,
-                dataLabels: {
-                  enabled: true,
-                  format: "{y:.1f}%",
-                  style: { color: theme.text },
-                },
-              },
-            },
-            series: [
-              {
-                name: "Values",
-                data: values.map((value) => ({
-                  y: value,
-                  color: getColorForValue(value),
-                })),
-              },
-            ],
+            // Chart initialization code
           });
 
           container.classList.add("ready");
