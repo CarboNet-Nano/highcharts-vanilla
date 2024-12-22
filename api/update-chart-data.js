@@ -3,39 +3,23 @@ const pusher = require("./pusher");
 
 exports.handler = async (event, context) => {
   const startTime = performance.now();
-
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Max-Age": "86400",
-  };
-
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers, body: "" };
-  }
-
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ success: false, message: "Method not allowed" }),
-    };
-  }
+  const timestamp = new Date().toISOString();
 
   try {
     const body = JSON.parse(event.body);
-    console.log("Received update request:", body);
 
-    // Strict mode validation
-    const mode =
-      body.mode === "dark" || body.mode === "light" ? body.mode : "light";
-    const timestamp = new Date().toISOString();
+    // Detailed request logging
+    console.log("=== Update Request Details ===");
+    console.log("Timestamp:", timestamp);
+    console.log("Source:", body.source || "unspecified");
+    console.log("Request Type:", body.type || "unspecified");
+    console.log("Mode:", body.mode || "unspecified");
+    console.log("Glide Source:", body.glide_source || "not from glide");
+    console.log("Full Request:", body);
+    console.log("===================");
 
-    // Check if this is a value update or mode-only update
-    let values = null;
     if (body.no_boost && body.no_makedown && body.makedown) {
-      values = [
+      const values = [
         Number(body.no_boost),
         Number(body.no_makedown),
         Number(body.makedown),
@@ -45,59 +29,83 @@ exports.handler = async (event, context) => {
         }
         return Number(value.toFixed(1));
       });
-    }
 
-    console.log(
-      "Sending to Pusher from update-chart-data:",
-      values || "mode-only update"
-    );
+      console.log("Sending to Pusher from update-chart-data:", values);
 
-    let retries = 3;
-    let lastError;
+      let retries = 3;
+      let lastError;
 
-    while (retries > 0) {
-      try {
-        await pusher.trigger("chart-updates", "value-update", {
-          type: "update",
-          source: "update-workflow",
-          ...(values && { values }),
-          mode,
-          timestamp,
-        });
-        break;
-      } catch (error) {
-        lastError = error;
-        retries--;
-        if (retries > 0) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+      while (retries > 0) {
+        try {
+          await pusher.trigger("chart-updates", "value-update", {
+            type: "update",
+            source: "update-workflow",
+            values,
+            mode: body.mode || "light",
+            timestamp,
+            request_source: body.glide_source || body.source || "unknown",
+          });
+          break;
+        } catch (error) {
+          lastError = error;
+          retries--;
+          if (retries > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
         }
       }
+
+      if (retries === 0) {
+        console.error(
+          "Failed to send Pusher message after retries:",
+          lastError
+        );
+        throw lastError;
+      }
+
+      const endTime = performance.now();
+      console.log(`Function execution time: ${endTime - startTime}ms`);
+
+      return {
+        statusCode: 200,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({
+          success: true,
+          source: "update-workflow",
+          values,
+          mode: body.mode || "light",
+          timestamp,
+          request_source: body.glide_source || body.source || "unknown",
+          processingTime: endTime - startTime,
+        }),
+      };
     }
 
-    if (retries === 0) {
-      console.error("Failed to send Pusher message after retries:", lastError);
-      throw lastError;
-    }
-
-    const endTime = performance.now();
-
+    console.log("No values received in update request");
     return {
       statusCode: 200,
-      headers,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+      },
       body: JSON.stringify({
         success: true,
-        source: "update-workflow",
-        ...(values && { values }),
-        mode,
-        timestamp,
-        processingTime: endTime - startTime,
+        message: "No values to process",
+        request_source: body.glide_source || body.source || "unknown",
       }),
     };
   } catch (error) {
-    console.error("Error:", error);
+    console.error("=== Error Processing Update Request ===");
+    console.error("Error:", error.message);
+    console.error("Raw request body:", event.body);
+    console.error("===================");
+
     return {
       statusCode: 400,
-      headers,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+      },
       body: JSON.stringify({
         success: false,
         message: error.message,

@@ -1,52 +1,21 @@
 const { performance } = require("perf_hooks");
-const pusher = require("./pusher");
-
-let latestValues = [35.1, 46.3, 78.7];
-let lastCallTime = 0;
-const DEBOUNCE_WAIT = 100; // ms
 
 exports.handler = async (event, context) => {
   const startTime = performance.now();
-  const currentTime = Date.now();
-
-  // If this call came too soon after the last one, skip it
-  if (currentTime - lastCallTime < DEBOUNCE_WAIT) {
-    return {
-      statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-      },
-      body: JSON.stringify({
-        success: true,
-        message: "Debounced",
-      }),
-    };
-  }
-  lastCallTime = currentTime;
-
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-  };
-
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers, body: "" };
-  }
-
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ success: false, message: "Method not allowed" }),
-    };
-  }
+  const timestamp = new Date().toISOString();
 
   try {
     const body = JSON.parse(event.body);
-    console.log("Received request:", body);
-    const timestamp = new Date().toISOString();
-    const mode = body.mode || "light";
+
+    // Detailed request logging
+    console.log("=== Request Details ===");
+    console.log("Timestamp:", timestamp);
+    console.log("Source:", body.source || "unspecified");
+    console.log("Request Type:", body.type || "unspecified");
+    console.log("Mode:", body.mode || "unspecified");
+    console.log("Glide Source:", body.glide_source || "not from glide");
+    console.log("Full Request:", body);
+    console.log("===================");
 
     if (body.no_boost && body.no_makedown && body.makedown) {
       const values = [
@@ -57,25 +26,46 @@ exports.handler = async (event, context) => {
         if (isNaN(value)) throw new Error(`Invalid number: ${value}`);
         return Number(value.toFixed(1));
       });
-      latestValues = values;
+
+      return {
+        statusCode: 200,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({
+          success: true,
+          source: body.source || body.type || "update",
+          values: values,
+          mode: body.mode || "light",
+          timestamp,
+          request_source: body.glide_source || body.source || "unknown",
+        }),
+      };
     }
 
+    console.log("No values received in request");
     return {
       statusCode: 200,
-      headers,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+      },
       body: JSON.stringify({
         success: true,
-        source: body.type || "update",
-        values: latestValues,
-        mode,
-        timestamp,
+        message: "No values to process",
+        request_source: body.glide_source || body.source || "unknown",
       }),
     };
   } catch (error) {
-    console.error("Error:", error);
+    console.error("=== Error Processing Request ===");
+    console.error("Error:", error.message);
+    console.error("Raw request body:", event.body);
+    console.error("===================");
+
     return {
       statusCode: 400,
-      headers,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+      },
       body: JSON.stringify({
         success: false,
         message: error.message,

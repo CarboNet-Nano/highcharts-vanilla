@@ -23,47 +23,166 @@
     <div id="chart-container">Loading chart...</div>
 
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      let chartInstance = null;
-      let isInitialized = false;
+      document.addEventListener("DOMContentLoaded", async function () {
+        console.log("DOM Content Loaded - Initializing chart application");
 
-      function initializeWithMode() {
-        try {
-          const url = new URL(window.location.href);
-          const params = new URLSearchParams(url.search);
-          let mode = params.get("mode") || 'light';
+        const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
+          cluster: "us3",
+        });
 
-          mode = (mode === "dark" || mode === "light") ? mode : 'light';
+        const channel = pusher.subscribe("chart-updates");
+        console.log("Pusher channel subscribed");
 
-          document.documentElement.className = `theme-${mode}`;
-          initializeChart(mode);
-        } catch (error) {
-          console.error("Error parsing URL:", error);
-          initializeChart('light');
+        async function initializeApp() {
+          console.log("Starting initialization process");
+          try {
+            const initialData = await fetchInitialData();
+            console.log("Initial data received:", initialData);
+            initializeChart(initialData);
+          } catch (error) {
+            console.error("Chart initialization failed:", error);
+            document.getElementById("chart-container").textContent =
+              "Chart failed to load";
+          }
         }
-      }
 
-      const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
-        cluster: "us3",
-      });
+        async function fetchInitialData() {
+          console.log("Fetching initial data from API");
+          try {
+            const payload = {
+              type: "initial-load",
+              source: "html-init",
+              chartId: "test-chart",
+            };
+            console.log("Sending API request with payload:", payload);
 
-      const channel = pusher.subscribe("chart-updates");
+            const response = await fetch(
+              "/.netlify/functions/get-chart-values",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+              }
+            );
 
-      function getColorForValue(value) {
-        if (value <= 15) return "#D32F2F";
-        if (value <= 45) return "#FFCA28";
-        return "#388E3C";
-      }
+            const data = await response.json();
+            console.log("API response received:", data);
+            return data;
+          } catch (error) {
+            console.error("Failed to fetch initial values:", error);
+            return { values: [0, 0, 0], mode: "light" };
+          }
+        }
 
-      function updateTheme(mode) {
-        if (mode !== "dark" && mode !== "light") return;
+        function initializeChart(initialData) {
+          console.log("Initializing chart with data:", initialData);
+          const { values, mode } = initialData;
+          const container = document.getElementById("chart-container");
 
-        document.documentElement.className = `theme-${mode}`;
-        if (chartInstance) {
           const theme = {
             light: { background: "#ffffff", text: "#000000" },
             dark: { background: "#121212", text: "#ffffff" },
           }[mode];
+
+          console.log("Applying theme:", mode);
+          container.style.backgroundColor = theme.background;
+          container.style.color = theme.text;
+          document.documentElement.className = `theme-${mode}`;
+
+          const chartInstance = Highcharts.chart(container, {
+            chart: {
+              type: "column",
+              animation: false,
+              height: container.clientHeight || 300,
+              width: container.clientWidth || 400,
+              backgroundColor: theme.background,
+              style: { color: theme.text },
+            },
+            title: { text: null },
+            xAxis: {
+              categories: ["No Boost", "No Makedown", "Makedown"],
+              labels: { style: { color: theme.text } },
+              gridLineWidth: 0,
+              lineColor: theme.text,
+              tickColor: theme.text,
+            },
+            yAxis: {
+              title: { text: "Percentage" },
+              labels: {
+                format: "{value}%",
+                style: { color: theme.text },
+              },
+              gridLineWidth: 0,
+              lineColor: theme.text,
+              gridLineColor: theme.text,
+            },
+            plotOptions: {
+              column: {
+                animation: false,
+                dataLabels: {
+                  enabled: true,
+                  format: "{y:.1f}%",
+                  style: { color: theme.text },
+                },
+              },
+            },
+            series: [
+              {
+                name: "Values",
+                data: values.map((value) => ({
+                  y: value,
+                  color: getColorForValue(value),
+                })),
+              },
+            ],
+          });
+
+          console.log("Chart created, setting up Pusher event listener");
+          channel.bind("value-update", function (data) {
+            console.log("Pusher update received:", data);
+            if (data.type === "update") {
+              if (data.values) {
+                const chartData = data.values.map((value) => ({
+                  y: Number(value),
+                  color: getColorForValue(Number(value)),
+                }));
+
+                chartData.forEach((point, index) => {
+                  chartInstance.series[0].points[index].update(point, false);
+                });
+
+                chartInstance.redraw(true);
+                console.log("Chart updated with new values");
+              }
+
+              if (data.mode) {
+                console.log("Updating theme to:", data.mode);
+                updateTheme(chartInstance, data.mode);
+              }
+            }
+          });
+
+          container.classList.add("ready");
+          console.log("Chart initialization complete");
+          return chartInstance;
+        }
+
+        function getColorForValue(value) {
+          if (value <= 15) return "#D32F2F";
+          if (value <= 45) return "#FFCA28";
+          return "#388E3C";
+        }
+
+        function updateTheme(chartInstance, mode) {
+          console.log("Updating chart theme to:", mode);
+          const theme = {
+            light: { background: "#ffffff", text: "#000000" },
+            dark: { background: "#121212", text: "#ffffff" },
+          }[mode];
+
+          document.documentElement.className = `theme-${mode}`;
 
           chartInstance.update(
             {
@@ -75,13 +194,11 @@
                 labels: { style: { color: theme.text } },
                 lineColor: theme.text,
                 tickColor: theme.text,
-                gridLineWidth: 0,
               },
               yAxis: {
                 labels: { style: { color: theme.text } },
                 gridLineColor: theme.text,
                 lineColor: theme.text,
-                gridLineWidth: 0,
               },
               plotOptions: {
                 column: {
@@ -93,166 +210,12 @@
             },
             true
           );
-        }
-      }
-
-      function createChart(initialValues, mode) {
-        if (chartInstance) return;
-
-        const theme = {
-          light: { background: "#ffffff", text: "#000000" },
-          dark: { background: "#121212", text: "#ffffff" },
-        }[mode];
-
-        const container = document.getElementById("chart-container");
-        
-        container.style.backgroundColor = theme.background;
-        container.style.color = theme.text;
-
-        chartInstance = Highcharts.chart(container, {
-          chart: {
-            type: "column",
-            animation: false,
-            height: container.clientHeight || 300,
-            width: container.clientWidth || 400,
-            backgroundColor: theme.background,
-            style: { color: theme.text },
-          },
-          title: { text: null },
-          xAxis: {
-            categories: ["No Boost", "No Makedown", "Makedown"],
-            labels: { style: { color: theme.text } },
-            gridLineWidth: 0,
-            lineColor: theme.text,
-            tickColor: theme.text,
-          },
-          yAxis: {
-            title: { text: "Percentage" },
-            labels: {
-              format: "{value}%",
-              style: { color: theme.text },
-            },
-            gridLineWidth: 0,
-            lineColor: theme.text,
-            gridLineColor: theme.text,
-          },
-          plotOptions: {
-            column: {
-              animation: false,
-              dataLabels: {
-                enabled: true,
-                format: "{y:.1f}%",
-                style: { color: theme.text },
-              },
-            },
-          },
-          series: [
-            {
-              name: "Values",
-              data: initialValues.map((value) => ({
-                y: value,
-                color: getColorForValue(value),
-              })),
-            },
-          ],
-        });
-
-        container.classList.add("ready");
-      }
-
-      async function fetchInitialData(mode) {
-        if (isInitialized) return null;
-
-        try {
-          const response = await fetch("/.netlify/functions/get-chart-values", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "initial-load",
-              mode: mode,
-            }),
-          });
-
-          const data = await response.json();
-          console.log("Initial data received:", data);
-
-          if (data.success && data.values) {
-            localStorage.setItem("chartData", JSON.stringify(data.values));
-            localStorage.setItem(
-              "lastUpdateTime",
-              new Date(data.timestamp).getTime()
-            );
-            return data.values;
-          }
-
-          throw new Error("Invalid data received");
-        } catch (error) {
-          console.error("Failed to fetch initial values:", error);
-          const storedData = localStorage.getItem("chartData");
-          return storedData ? JSON.parse(storedData) : [0, 0, 0];
-        }
-      }
-
-      async function initializeChart(mode) {
-        if (isInitialized) return;
-
-        const container = document.getElementById("chart-container");
-        container.style.backgroundColor = mode === 'dark' ? '#121212' : '#ffffff';
-        container.style.color = mode === 'dark' ? '#ffffff' : '#000000';
-
-        const values = await fetchInitialData(mode);
-        if (values) {
-          createChart(values, mode);
-          container.classList.add("ready");
-          isInitialized = true;
+          console.log("Theme update complete");
         }
 
-        channel.bind("value-update", function (data) {
-          console.log("Pusher update received:", data);
-          if (data.source === "sync-check") return;
-
-          if (data.type === "update") {
-            const lastUpdate = localStorage.getItem("lastUpdateTime");
-            const newTimestamp = new Date(data.timestamp).getTime();
-
-            if (!lastUpdate || newTimestamp > parseInt(lastUpdate)) {
-              if (data.values) {
-                localStorage.setItem("chartData", JSON.stringify(data.values));
-                localStorage.setItem("lastUpdateTime", newTimestamp);
-
-                const chartData = data.values.map((value) => ({
-                  y: Number(value),
-                  color: getColorForValue(Number(value)),
-                }));
-
-                chartData.forEach((point, index) => {
-                  chartInstance.series[0].points[index].update(point, false);
-                });
-
-                chartInstance.redraw(true);
-              }
-
-              if (data.mode) {
-                updateTheme(data.mode);
-              }
-            }
-          }
-        });
-
-        let resizeTimeout;
-        window.addEventListener("resize", function () {
-          clearTimeout(resizeTimeout);
-          resizeTimeout = setTimeout(() => {
-            chartInstance.setSize(
-              container.clientWidth,
-              container.clientHeight
-            );
-          }, 100);
-        });
-      }
-
-      initializeWithMode();
-    });
+        console.log("Starting application initialization");
+        initializeApp();
+      });
     </script>
   </body>
 </html>
