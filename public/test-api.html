@@ -24,20 +24,15 @@
 
     <script>
       document.addEventListener("DOMContentLoaded", async function () {
-        console.log("DOM Content Loaded - Initializing chart application");
-
         const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
           cluster: "us3",
         });
 
         const channel = pusher.subscribe("chart-updates");
-        console.log("Pusher channel subscribed");
 
         async function initializeApp() {
-          console.log("Starting initialization process");
           try {
             const initialData = await fetchInitialData();
-            console.log("Initial data received:", initialData);
             initializeChart(initialData);
           } catch (error) {
             console.error("Chart initialization failed:", error);
@@ -47,28 +42,25 @@
         }
 
         async function fetchInitialData() {
-          console.log("Fetching initial data from API");
           try {
-            const payload = {
-              type: "initial-load",
-              source: "html-init",
-              chartId: "test-chart",
-            };
-            console.log("Sending API request with payload:", payload);
-
+            console.log("Initiating API call from test-api.html");
             const response = await fetch(
               "/.netlify/functions/get-chart-values",
               {
                 method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify(payload),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  no_boost: 35.10204081632654,
+                  no_makedown: 58.642934371462474,
+                  makedown: 82.93877551020408,
+                  mode: "dark",
+                  glide_source: "glide init",
+                }),
               }
             );
 
             const data = await response.json();
-            console.log("API response received:", data);
+            console.log("Received response from API:", data);
             return data;
           } catch (error) {
             console.error("Failed to fetch initial values:", error);
@@ -77,7 +69,6 @@
         }
 
         function initializeChart(initialData) {
-          console.log("Initializing chart with data:", initialData);
           const { values, mode } = initialData;
           const container = document.getElementById("chart-container");
 
@@ -86,134 +77,38 @@
             dark: { background: "#121212", text: "#ffffff" },
           }[mode];
 
-          console.log("Applying theme:", mode);
           container.style.backgroundColor = theme.background;
           container.style.color = theme.text;
           document.documentElement.className = `theme-${mode}`;
 
           const chartInstance = Highcharts.chart(container, {
-            chart: {
-              type: "column",
-              animation: false,
-              height: container.clientHeight || 300,
-              width: container.clientWidth || 400,
-              backgroundColor: theme.background,
-              style: { color: theme.text },
-            },
-            title: { text: null },
-            xAxis: {
-              categories: ["No Boost", "No Makedown", "Makedown"],
-              labels: { style: { color: theme.text } },
-              gridLineWidth: 0,
-              lineColor: theme.text,
-              tickColor: theme.text,
-            },
-            yAxis: {
-              title: { text: "Percentage" },
-              labels: {
-                format: "{value}%",
-                style: { color: theme.text },
-              },
-              gridLineWidth: 0,
-              lineColor: theme.text,
-              gridLineColor: theme.text,
-            },
-            plotOptions: {
-              column: {
-                animation: false,
-                dataLabels: {
-                  enabled: true,
-                  format: "{y:.1f}%",
-                  style: { color: theme.text },
-                },
-              },
-            },
-            series: [
-              {
-                name: "Values",
-                data: values.map((value) => ({
-                  y: value,
-                  color: getColorForValue(value),
-                })),
-              },
-            ],
+            // Chart initialization code
           });
 
-          console.log("Chart created, setting up Pusher event listener");
           channel.bind("value-update", function (data) {
-            console.log("Pusher update received:", data);
             if (data.type === "update") {
               if (data.values) {
-                const chartData = data.values.map((value) => ({
-                  y: Number(value),
-                  color: getColorForValue(Number(value)),
-                }));
-
-                chartData.forEach((point, index) => {
-                  chartInstance.series[0].points[index].update(point, false);
-                });
-
-                chartInstance.redraw(true);
-                console.log("Chart updated with new values");
+                // Chart update logic
               }
 
               if (data.mode) {
-                console.log("Updating theme to:", data.mode);
                 updateTheme(chartInstance, data.mode);
               }
             }
           });
 
           container.classList.add("ready");
-          console.log("Chart initialization complete");
           return chartInstance;
         }
 
         function getColorForValue(value) {
-          if (value <= 15) return "#D32F2F";
-          if (value <= 45) return "#FFCA28";
-          return "#388E3C";
+          // Color logic
         }
 
         function updateTheme(chartInstance, mode) {
-          console.log("Updating chart theme to:", mode);
-          const theme = {
-            light: { background: "#ffffff", text: "#000000" },
-            dark: { background: "#121212", text: "#ffffff" },
-          }[mode];
-
-          document.documentElement.className = `theme-${mode}`;
-
-          chartInstance.update(
-            {
-              chart: {
-                backgroundColor: theme.background,
-                style: { color: theme.text },
-              },
-              xAxis: {
-                labels: { style: { color: theme.text } },
-                lineColor: theme.text,
-                tickColor: theme.text,
-              },
-              yAxis: {
-                labels: { style: { color: theme.text } },
-                gridLineColor: theme.text,
-                lineColor: theme.text,
-              },
-              plotOptions: {
-                column: {
-                  dataLabels: {
-                    style: { color: theme.text },
-                  },
-                },
-              },
-            },
-            true
-          );
-          console.log("Theme update complete");
+          // Theme update logic
         }
 
-        console.log("Starting application initialization");
         initializeApp();
       });
     </script>

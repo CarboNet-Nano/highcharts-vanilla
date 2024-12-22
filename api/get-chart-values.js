@@ -17,33 +17,18 @@ exports.handler = async (event, context) => {
     console.log("Full Request:", body);
     console.log("===================");
 
-    if (body.no_boost && body.no_makedown && body.makedown) {
-      const values = [
-        Number(body.no_boost),
-        Number(body.no_makedown),
-        Number(body.makedown),
-      ].map((value) => {
-        if (isNaN(value)) throw new Error(`Invalid number: ${value}`);
-        return Number(value.toFixed(1));
-      });
+    // Use the values and mode from the request payload
+    const { no_boost, no_makedown, makedown, mode } = body;
 
-      return {
-        statusCode: 200,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-        },
-        body: JSON.stringify({
-          success: true,
-          source: body.source || body.type || "update",
-          values: values,
-          mode: body.mode || "light",
-          timestamp,
-          request_source: body.glide_source || body.source || "unknown",
-        }),
-      };
-    }
+    const values = [
+      Number(no_boost),
+      Number(no_makedown),
+      Number(makedown),
+    ].map((value) => {
+      if (isNaN(value)) throw new Error(`Invalid number: ${value}`);
+      return Number(value.toFixed(1));
+    });
 
-    console.log("No values received in request");
     return {
       statusCode: 200,
       headers: {
@@ -51,7 +36,10 @@ exports.handler = async (event, context) => {
       },
       body: JSON.stringify({
         success: true,
-        message: "No values to process",
+        source: body.source || body.type || "update",
+        values,
+        mode,
+        timestamp,
         request_source: body.glide_source || body.source || "unknown",
       }),
     };
