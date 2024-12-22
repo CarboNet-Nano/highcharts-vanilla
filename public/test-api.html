@@ -23,7 +23,7 @@
     <div id="chart-container">Loading chart...</div>
 
     <script>
-      document.addEventListener("DOMContentLoaded", async function () {
+      document.addEventListener('DOMContentLoaded', async function() {
         const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
           cluster: "us3",
         });
@@ -35,32 +35,28 @@
             const initialData = await fetchInitialData();
             initializeChart(initialData);
           } catch (error) {
-            console.error("Chart initialization failed:", error);
-            document.getElementById("chart-container").textContent =
-              "Chart failed to load";
+            console.error('Chart initialization failed:', error);
+            document.getElementById('chart-container').textContent = 'Chart failed to load';
           }
         }
 
         async function fetchInitialData() {
           try {
-            console.log("Initiating API call from test-api.html");
-            const response = await fetch(
-              "/.netlify/functions/get-chart-values",
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  json_column: "your_json_column_value", // Replace with actual value or variable
-                }),
-              }
-            );
+            console.log('Initiating API call from test-api.html');
+            const response = await fetch("/.netlify/functions/get-chart-values", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                json_column: /* the actual json_column field data from Glide */
+              }),
+            });
 
             const data = await response.json();
-            console.log("Received response from API:", data);
+            console.log('Received response from API:', data);
             return data;
           } catch (error) {
             console.error("Failed to fetch initial values:", error);
-            return { values: [0, 0, 0], mode: "light" };
+            return { values: [0, 0, 0], mode: 'light' };
           }
         }
 
