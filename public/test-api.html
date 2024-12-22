@@ -50,6 +50,7 @@
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                  chartId: "test-chart",
                   no_boost: 35.10204081632654,
                   no_makedown: 58.642934371462474,
                   makedown: 82.93877551020408,
@@ -82,19 +83,51 @@
           document.documentElement.className = `theme-${mode}`;
 
           const chartInstance = Highcharts.chart(container, {
-            // Chart initialization code
-          });
-
-          channel.bind("value-update", function (data) {
-            if (data.type === "update") {
-              if (data.values) {
-                // Chart update logic
-              }
-
-              if (data.mode) {
-                updateTheme(chartInstance, data.mode);
-              }
-            }
+            chart: {
+              type: "column",
+              animation: false,
+              height: container.clientHeight || 300,
+              width: container.clientWidth || 400,
+              backgroundColor: theme.background,
+              style: { color: theme.text },
+            },
+            title: { text: null },
+            xAxis: {
+              categories: ["No Boost", "No Makedown", "Makedown"],
+              labels: { style: { color: theme.text } },
+              gridLineWidth: 0,
+              lineColor: theme.text,
+              tickColor: theme.text,
+            },
+            yAxis: {
+              title: { text: "Percentage" },
+              labels: {
+                format: "{value}%",
+                style: { color: theme.text },
+              },
+              gridLineWidth: 0,
+              lineColor: theme.text,
+              gridLineColor: theme.text,
+            },
+            plotOptions: {
+              column: {
+                animation: false,
+                dataLabels: {
+                  enabled: true,
+                  format: "{y:.1f}%",
+                  style: { color: theme.text },
+                },
+              },
+            },
+            series: [
+              {
+                name: "Values",
+                data: values.map((value) => ({
+                  y: value,
+                  color: getColorForValue(value),
+                })),
+              },
+            ],
           });
 
           container.classList.add("ready");
@@ -102,7 +135,9 @@
         }
 
         function getColorForValue(value) {
-          // Color logic
+          if (value <= 15) return "#D32F2F";
+          if (value <= 45) return "#FFCA28";
+          return "#388E3C";
         }
 
         function updateTheme(chartInstance, mode) {
