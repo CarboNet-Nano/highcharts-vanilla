@@ -5,8 +5,7 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://js.pusher.com/8.0/pusher.min.js"></script>
     <style>
-      body,
-      html {
+      body, html {
         margin: 0;
         padding: 0;
         width: 100%;
@@ -18,11 +17,24 @@
         min-height: 300px;
         max-width: 800px;
         margin: 0 auto;
+        position: relative;
+      }
+      #error-message {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(255,0,0,0.1);
+        padding: 20px;
+        border-radius: 8px;
+        display: none;
       }
     </style>
   </head>
   <body>
-    <div id="chart-container"></div>
+    <div id="chart-container">
+      <div id="error-message"></div>
+    </div>
 
     <script>
       const THEME_COLORS = {
@@ -41,9 +53,9 @@
       };
 
       const VALUE_COLORS = {
-        low: "#D32F2F", // Red
-        medium: "#FFCA28", // Yellow
-        high: "#388E3C", // Green
+        low: "#D32F2F",
+        medium: "#FFCA28",
+        high: "#388E3C",
       };
 
       const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
@@ -51,6 +63,16 @@
       });
 
       const channel = pusher.subscribe("chart-updates");
+      
+      function showError(message) {
+        const errorDiv = document.getElementById('error-message');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+      }
+
+      function hideError() {
+        document.getElementById('error-message').style.display = 'none';
+      }
 
       function getColorForValue(value) {
         if (value <= 15) return VALUE_COLORS.low;
@@ -63,6 +85,7 @@
       }
 
       function createChart(initialValues, mode) {
+        hideError();
         const container = document.getElementById("chart-container");
         const theme = getThemeColors(mode);
 
@@ -106,113 +129,117 @@
               },
             },
           },
-          series: [
-            {
-              name: "Values",
-              data: initialValues.map((value) => ({
-                y: value,
-                color: getColorForValue(value),
-              })),
-            },
-          ],
+          series: [{
+            name: "Values",
+            data: initialValues.map(value => ({
+              y: value,
+              color: getColorForValue(value)
+            }))
+          }]
         });
       }
 
-      async function fetchInitialData() {
-        try {
-          const response = await fetch("/.netlify/functions/get-chart-values", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "initial-load" }),
-          });
+      async function fetchWithRetry(retries = 3, baseDelay = 1000) {
+        for (let i = 0; i < retries; i++) {
+          try {
+            const response = await fetch("/.netlify/functions/get-chart-values", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ type: "initial-load" })
+            });
 
-          const data = await response.json();
-          console.log("Initial data received:", data);
-
-          if (data.success) {
-            return {
-              values: data.values || [0, 0, 0],
-              mode: data.mode || "light",
-            };
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            
+            if (!data.success) throw new Error('API returned unsuccessful status');
+            if (!data.values || !Array.isArray(data.values)) throw new Error('Invalid data format');
+            
+            hideError();
+            return data;
+          } catch (error) {
+            console.error(`Attempt ${i + 1} failed:`, error);
+            const delay = baseDelay * Math.pow(2, i);
+            
+            if (i < retries - 1) {
+              showError(`Loading data... Retry ${i + 1} of ${retries}`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            } else {
+              showError('Unable to load chart data. Please refresh the page.');
+              throw error;
+            }
           }
-          return { values: [0, 0, 0], mode: "light" };
-        } catch (error) {
-          console.error("Failed to fetch initial values:", error);
-          return { values: [0, 0, 0], mode: "light" };
         }
       }
 
       async function init() {
-        const { values, mode } = await fetchInitialData();
-        createChart(values, mode);
+        try {
+          const { values, mode } = await fetchWithRetry();
+          createChart(values, mode);
 
-        channel.bind("value-update", function (data) {
-          console.log("Pusher update received:", data);
+          channel.bind("value-update", function (data) {
+            console.log("Pusher update received:", data);
 
-          if (data.type === "update" && Array.isArray(data.values)) {
-            const chartData = data.values.map((value) => ({
-              y: Number(value),
-              color: getColorForValue(Number(value)),
-            }));
+            if (data.type === "update" && Array.isArray(data.values)) {
+              const chartData = data.values.map(value => ({
+                y: Number(value),
+                color: getColorForValue(Number(value))
+              }));
 
-            // Update points
-            chartData.forEach((point, index) => {
-              window.chart.series[0].points[index].update(point, false);
-            });
+              chartData.forEach((point, index) => {
+                window.chart.series[0].points[index].update(point, false);
+              });
 
-            // Update theme if mode changed
-            if (data.mode) {
-              const theme = getThemeColors(data.mode);
-              window.chart.update(
-                {
+              if (data.mode) {
+                const theme = getThemeColors(data.mode);
+                window.chart.update({
                   chart: {
                     backgroundColor: theme.background,
-                    style: { color: theme.text },
+                    style: { color: theme.text }
                   },
                   xAxis: {
                     labels: { style: { color: theme.text } },
                     lineColor: theme.grid,
-                    tickColor: theme.grid,
+                    tickColor: theme.grid
                   },
                   yAxis: {
                     labels: { style: { color: theme.text } },
                     gridLineColor: theme.grid,
-                    lineColor: theme.grid,
+                    lineColor: theme.grid
                   },
                   tooltip: {
                     backgroundColor: theme.tooltip,
-                    style: { color: theme.text },
+                    style: { color: theme.text }
                   },
                   plotOptions: {
                     column: {
                       dataLabels: {
-                        style: { color: theme.text },
-                      },
-                    },
-                  },
-                },
-                false
-              );
+                        style: { color: theme.text }
+                      }
+                    }
+                  }
+                }, false);
+              }
+
+              window.chart.redraw(true);
             }
+          });
 
-            window.chart.redraw(true);
-          }
-        });
-
-        // Handle container resize
-        const resizeObserver = new ResizeObserver((entries) => {
-          for (let entry of entries) {
-            if (window.chart) {
-              window.chart.setSize(
-                entry.contentRect.width,
-                entry.contentRect.height,
-                false
-              );
+          const resizeObserver = new ResizeObserver((entries) => {
+            for (let entry of entries) {
+              if (window.chart) {
+                window.chart.setSize(
+                  entry.contentRect.width,
+                  entry.contentRect.height,
+                  false
+                );
+              }
             }
-          }
-        });
+          });
 
-        resizeObserver.observe(container);
+          resizeObserver.observe(container);
+        } catch (error) {
+          console.error('Failed to initialize chart:', error);
+        }
       }
 
       document.addEventListener("DOMContentLoaded", init);

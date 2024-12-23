@@ -23,22 +23,34 @@ exports.handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body);
+    console.log("Received request:", body);
+    
     const mode = body.mode || "light";
     let values;
     let source = body.type || "update";
     const timestamp = new Date().toISOString();
 
-    // Initial load should use existing values from json_column
-    if (body.type === "initial-load" && body.json_column) {
-      const parsed = JSON.parse(body.json_column);
-      values = [
-        Number(parsed.no_boost),
-        Number(parsed.no_makedown),
-        Number(parsed.makedown),
-      ].map((value) => {
-        if (isNaN(value)) throw new Error(`Invalid number: ${value}`);
-        return Number(value.toFixed(1));
-      });
+    // Initial load with json_column handling
+    if (body.type === "initial-load") {
+      if (body.json_column) {
+        try {
+          const parsed = JSON.parse(body.json_column);
+          values = [
+            Number(parsed.no_boost),
+            Number(parsed.no_makedown),
+            Number(parsed.makedown),
+          ].map(value => {
+            if (isNaN(value)) throw new Error(`Invalid number in json_column: ${value}`);
+            return Number(value.toFixed(1));
+          });
+        } catch (error) {
+          console.error("Error parsing json_column:", error);
+          throw new Error("Invalid json_column format");
+        }
+      } else {
+        // Return default values for initial load without json_column
+        values = [0, 0, 0];
+      }
     }
 
     // Handle value updates
@@ -47,18 +59,37 @@ exports.handler = async (event, context) => {
         Number(body.no_boost),
         Number(body.no_makedown),
         Number(body.makedown),
-      ].map((value) => {
-        if (isNaN(value)) throw new Error(`Invalid number: ${value}`);
+      ].map(value => {
+        if (isNaN(value)) throw new Error(`Invalid number in update: ${value}`);
         return Number(value.toFixed(1));
       });
 
-      await pusher.trigger("chart-updates", "value-update", {
-        type: "update",
-        source,
-        values,
-        mode,
-        timestamp,
-      });
+      let retries = 3;
+      let lastError;
+
+      while (retries > 0) {
+        try {
+          await pusher.trigger("chart-updates", "value-update", {
+            type: "update",
+            source,
+            values,
+            mode,
+            timestamp,
+          });
+          break;
+        } catch (error) {
+          lastError = error;
+          retries--;
+          if (retries > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+
+      if (retries === 0) {
+        console.error("Failed to send Pusher message after retries:", lastError);
+        throw new Error("Failed to update chart after multiple retries");
+      }
     }
 
     const endTime = performance.now();
