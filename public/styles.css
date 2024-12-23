@@ -17,13 +17,3 @@ html {
   justify-content: center;
   align-items: center;
 }
-
-.theme-dark {
-  background-color: #121212;
-  color: #ffffff;
-}
-
-.theme-light {
-  background-color: #ffffff;
-  color: #000000;
-}

@@ -1,12 +1,8 @@
 const { performance } = require("perf_hooks");
 const pusher = require("./pusher");
 
-let latestValues = null;
-let lastUpdateTime = null;
-
 exports.handler = async (event, context) => {
   const startTime = performance.now();
-
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
@@ -27,31 +23,22 @@ exports.handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body);
-    console.log("Received request:", body);
-
+    const mode = body.mode || "light";
     let values;
     let source = body.type || "update";
     const timestamp = new Date().toISOString();
-    let shouldPushUpdate = false;
 
-    // Keep original mode from request
-    const mode = body.mode || "light";
-
-    // Initial load should use existing values
-    if (body.type === "initial-load") {
-      console.log("Processing values:", { values, source, timestamp });
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          success: true,
-          source,
-          values,
-          mode,
-          timestamp,
-          lastUpdateTime,
-        }),
-      };
+    // Initial load should use existing values from json_column
+    if (body.type === "initial-load" && body.json_column) {
+      const parsed = JSON.parse(body.json_column);
+      values = [
+        Number(parsed.no_boost),
+        Number(parsed.no_makedown),
+        Number(parsed.makedown),
+      ].map((value) => {
+        if (isNaN(value)) throw new Error(`Invalid number: ${value}`);
+        return Number(value.toFixed(1));
+      });
     }
 
     // Handle value updates
@@ -61,48 +48,17 @@ exports.handler = async (event, context) => {
         Number(body.no_makedown),
         Number(body.makedown),
       ].map((value) => {
-        if (isNaN(value)) {
-          throw new Error(`Invalid number: ${value}`);
-        }
+        if (isNaN(value)) throw new Error(`Invalid number: ${value}`);
         return Number(value.toFixed(1));
       });
 
-      latestValues = values;
-      lastUpdateTime = timestamp;
-      shouldPushUpdate = true;
-
-      if (shouldPushUpdate) {
-        let retries = 3;
-        let lastError;
-
-        while (retries > 0) {
-          try {
-            await pusher.trigger("chart-updates", "value-update", {
-              type: "update",
-              source,
-              values,
-              mode,
-              timestamp,
-              lastUpdateTime,
-            });
-            break;
-          } catch (error) {
-            lastError = error;
-            retries--;
-            if (retries > 0) {
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-            }
-          }
-        }
-
-        if (retries === 0) {
-          console.error(
-            "Failed to send Pusher message after retries:",
-            lastError
-          );
-          throw lastError;
-        }
-      }
+      await pusher.trigger("chart-updates", "value-update", {
+        type: "update",
+        source,
+        values,
+        mode,
+        timestamp,
+      });
     }
 
     const endTime = performance.now();
@@ -115,7 +71,6 @@ exports.handler = async (event, context) => {
         values,
         mode,
         timestamp,
-        lastUpdateTime,
         processingTime: endTime - startTime,
       }),
     };
