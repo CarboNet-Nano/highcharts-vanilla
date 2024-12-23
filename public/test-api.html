@@ -124,9 +124,38 @@
         }).observe(container);
       }
 
-      window.addEventListener('load', () => {
-        console.log("Page loaded, chart container:", document.getElementById("chart-container"));
-      });
+      // Get row ID from URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const rowId = urlParams.get('rowId');
+
+      // Fetch chart data
+      fetch("/.netlify/functions/get-chart-values", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          json_column: JSON.stringify({
+            chartId: rowId || "test-chart",
+            no_boost: null,
+            no_makedown: null,
+            makedown: null,
+            mode: "dark",
+            glide_source: "glide init"
+          })
+        })
+      })
+        .then(response => {
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          return response.json();
+        })
+        .then(data => {
+          console.log("Creating chart with data:", data);
+          createChart(data);
+        })
+        .catch(error => {
+          console.error("Error:", error);
+          document.getElementById("chart-container").innerHTML = 
+            `<div style="color: red">Error loading chart: ${error.message}</div>`;
+        });
     </script>
   </body>
 </html>
