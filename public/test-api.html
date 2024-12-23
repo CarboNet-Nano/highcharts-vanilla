@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html>
   <head>
@@ -20,14 +21,15 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        background-color: var(--background-color, #ffffff);
+        background-color: #ffffff;
+        color: #000000;
         opacity: 1;
         transition: opacity 0.3s;
+        z-index: 1000;
       }
 
       .loading-text {
         font-size: 1.2rem;
-        color: var(--text-color, #000000);
       }
 
       #chart-container {
@@ -36,14 +38,6 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        opacity: 0;
-        transform: scaleY(0);
-        transition: transform 0.5s ease-out, opacity 0.3s;
-      }
-
-      #chart-container.loaded {
-        opacity: 1;
-        transform: scaleY(1);
       }
 
       #error-message {
@@ -94,18 +88,51 @@
         return "#388E3C";
       }
 
-      function hideLoadingScreen() {
-        const loadingScreen = document.getElementById("loading-screen");
-        const chartContainer = document.getElementById("chart-container");
-
-        loadingScreen.style.opacity = "0";
-        setTimeout(() => {
-          loadingScreen.style.display = "none";
-          chartContainer.classList.add("loaded");
-        }, 300);
+      // Create initial empty chart
+      function createEmptyChart(theme) {
+        const container = document.getElementById("chart-container");
+        return Highcharts.chart(container, {
+          chart: {
+            type: "column",
+            backgroundColor: theme.background,
+            style: { color: theme.text },
+            spacing: [0, 0, 0, 0],
+            marginLeft: 50,
+            marginTop: 20,
+          },
+          title: { text: null },
+          xAxis: {
+            categories: ["No Boost", "No Makedown", "Makedown"],
+            labels: { style: { color: theme.text } },
+            gridLineWidth: 0,
+            lineColor: theme.grid,
+            tickColor: theme.grid,
+          },
+          yAxis: {
+            title: { text: null },
+            labels: {
+              format: "{value}%",
+              style: { color: theme.text },
+            },
+            gridLineWidth: 1,
+            gridLineColor: theme.grid,
+            lineColor: theme.grid,
+          },
+          tooltip: {
+            backgroundColor: theme.tooltip,
+            style: { color: theme.text },
+            borderWidth: 0,
+          },
+          series: [
+            {
+              name: "Values",
+              data: [],
+            },
+          ],
+        });
       }
 
-      function createChart(data) {
+      function updateChart(data) {
         if (!data || !Array.isArray(data.values)) {
           showError("Invalid data format received");
           return;
@@ -113,103 +140,42 @@
 
         const { values, mode } = data;
         const theme = THEME_COLORS[mode] || THEME_COLORS.light;
-        const container = document.getElementById("chart-container");
 
-        document.documentElement.style.setProperty(
-          "--background-color",
-          theme.background
-        );
-        document.documentElement.style.setProperty("--text-color", theme.text);
-
-        if (!container) {
-          showError("Chart container not found");
-          return;
+        if (!window.chart) {
+          window.chart = createEmptyChart(theme);
         }
 
-        try {
-          window.chart = Highcharts.chart(container, {
-            chart: {
-              type: "column",
-              backgroundColor: theme.background,
-              style: { color: theme.text },
-              spacing: [0, 0, 0, 0],
-              marginLeft: 50,
-              marginTop: 20,
-              events: {
-                redraw: hideLoadingScreen,
-              },
-            },
-            title: { text: null },
-            xAxis: {
-              categories: ["No Boost", "No Makedown", "Makedown"],
-              labels: { style: { color: theme.text } },
-              gridLineWidth: 0,
-              lineColor: theme.grid,
-              tickColor: theme.grid,
-            },
-            yAxis: {
-              title: { text: null },
-              labels: {
-                format: "{value}%",
-                style: { color: theme.text },
-              },
-              gridLineWidth: 1,
-              gridLineColor: theme.grid,
-              lineColor: theme.grid,
-            },
-            tooltip: {
-              backgroundColor: theme.tooltip,
-              style: { color: theme.text },
-              borderWidth: 0,
-            },
-            plotOptions: {
-              column: {
-                animation: {
-                  duration: 1000,
-                  easing: "easeOutBounce",
-                },
-                dataLabels: {
-                  enabled: true,
-                  format: "{y:.1f}%",
-                  style: { color: theme.text },
-                },
-              },
-            },
-            series: [
-              {
-                name: "Values",
-                data: values.map((value) => ({
-                  y: value,
-                  color: getColorForValue(value),
-                })),
-              },
-            ],
-          });
+        // Hide loading screen
+        const loadingScreen = document.getElementById("loading-screen");
+        loadingScreen.style.opacity = "0";
+        setTimeout(() => (loadingScreen.style.display = "none"), 300);
 
-          // Ensure loading screen is hidden after chart creation
-          setTimeout(hideLoadingScreen, 500);
-
-          document.getElementById("error-message").textContent = "";
-        } catch (error) {
-          showError(`Error creating chart: ${error.message}`);
-          console.error("Error stack:", error.stack);
-        }
-
-        new ResizeObserver((entries) => {
-          if (window.chart) {
-            window.chart.setSize(
-              entries[0].contentRect.width,
-              entries[0].contentRect.height,
-              false
-            );
+        // Animate in the data
+        window.chart.series[0].setData(
+          values.map((value) => ({
+            y: value,
+            color: getColorForValue(value),
+          })),
+          true,
+          {
+            duration: 800,
+            easing: "easeOutQuart",
           }
-        }).observe(container);
+        );
       }
 
       const channel = pusher.subscribe("chart-updates");
       channel.bind("value-update", function (data) {
-        createChart(data);
+        updateChart(data);
       });
+
+      // Create empty chart immediately with system theme
+      const initialTheme = window.matchMedia("(prefers-color-scheme: dark)")
+        .matches
+        ? THEME_COLORS.dark
+        : THEME_COLORS.light;
+      window.chart = createEmptyChart(initialTheme);
     </script>
   </body>
 </html>
+```
