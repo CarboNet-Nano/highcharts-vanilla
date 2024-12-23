@@ -8,11 +8,11 @@
     "build": "netlify build"
   },
   "dependencies": {
-    "@glideapps/tables": "latest",
     "@netlify/functions": "^2.8.2",
     "pusher": "^5.0.0",
     "pusher-js": "^8.0.0",
-    "perf_hooks": "^0.0.1"
+    "perf_hooks": "^0.0.1",
+    "node-fetch": "^2.6.1"
   },
   "devDependencies": {
     "netlify-cli": "^17.38.0"

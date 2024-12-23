@@ -1,18 +1,36 @@
 const { performance } = require("perf_hooks");
 const pusher = require("./pusher");
-const glide = require("@glideapps/tables");
+const fetch = require("node-fetch");
 
-const calculationModelsTable = glide.table({
-  token: "722b598d-1746-4575-bfe8-2fa4fe92a2ed",
-  app: "OF5lh0TbgZdeYgCrSdG6",
-  table: "native-table-ud73I28iqShdMdbNB9Gj",
-  columns: {
-    mode: { type: "string", name: "Cen5T" },
-    rowOwnerUserEmail: { type: "email-address", name: "78J2c" },
-    formCurrentUser1: { type: "email-address", name: "iAfZv" },
-    enteredUnitsSoldKg: { type: "number", name: "E1KLz" },
-  },
-});
+let lastKnownValues = null;
+
+const fetchGlideData = async () => {
+  const response = await fetch(
+    "https://api.glideapp.io/api/function/queryTables",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer 722b598d-1746-4575-bfe8-2fa4fe92a2ed",
+      },
+      body: JSON.stringify({
+        appID: "OF5lh0TbgZdeYgCrSdG6",
+        queries: [
+          {
+            tableName: "native-table-ud73I28iqShdMdbNB9Gj",
+            utc: true,
+          },
+        ],
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Glide API error: ${response.status}`);
+  }
+
+  return response.json();
+};
 
 exports.handler = async (event, context) => {
   const startTime = performance.now();
@@ -48,21 +66,35 @@ exports.handler = async (event, context) => {
     let source = body.type || "update";
     const timestamp = new Date().toISOString();
 
-    // Initial load - fetch from Glide
+    // Store new values from Glide
+    if (body.glide_source === "glide init" && body.no_boost) {
+      lastKnownValues = [
+        Number(body.no_boost),
+        Number(body.no_makedown),
+        Number(body.makedown),
+      ].map((value) => Number(value.toFixed(1)));
+    }
+
+    // Initial load - fetch from Glide API
     if (body.type === "initial-load") {
       try {
-        const rows = await calculationModelsTable.get();
-        console.log("Glide Data:", rows);
-        const latestRow = rows[rows.length - 1];
+        const glideData = await fetchGlideData();
+        console.log("Glide API response:", glideData);
 
-        if (latestRow) {
-          values = [35.1, 33.9, 74.4]; // Hardcoded for testing
+        // Use latest row data or fallback to lastKnownValues
+        if (glideData && glideData.rows && glideData.rows.length > 0) {
+          const latestRow = glideData.rows[glideData.rows.length - 1];
+          values = [
+            Number(latestRow.no_boost),
+            Number(latestRow.no_makedown),
+            Number(latestRow.makedown),
+          ].map((value) => Number(value.toFixed(1)));
         } else {
-          throw new Error("No data available from Glide");
+          values = lastKnownValues || [0, 0, 0];
         }
       } catch (error) {
-        console.error("Glide API error:", error);
-        throw new Error("Failed to fetch data from Glide");
+        console.error("Glide API fetch error:", error);
+        values = lastKnownValues || [0, 0, 0];
       }
     }
 
@@ -93,7 +125,7 @@ exports.handler = async (event, context) => {
       body: JSON.stringify({
         success: true,
         source,
-        values,
+        values: values || lastKnownValues || [0, 0, 0],
         mode,
         timestamp,
         processingTime: endTime - startTime,
