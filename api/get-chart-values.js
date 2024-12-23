@@ -23,7 +23,12 @@ exports.handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body);
-    console.log("Received request:", body);
+    console.log("Received request:", {
+      ...body,
+      type: body.type || "update",
+      source: body.glide_source || "direct",
+      timestamp: new Date().toISOString()
+    });
     
     const mode = body.mode || "light";
     let values;

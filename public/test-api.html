@@ -171,7 +171,12 @@
         }
       }
 
+      function showLoading() {
+        showError('Loading chart data...');
+      }
+
       async function init() {
+        showLoading();
         try {
           const { values, mode } = await fetchWithRetry();
           createChart(values, mode);
