@@ -2,8 +2,6 @@ const { performance } = require("perf_hooks");
 const pusher = require("./pusher");
 const fetch = require("node-fetch");
 
-let lastKnownRowId = null;
-
 const fetchGlideData = async (rowId) => {
   const response = await fetch(
     "https://api.glideapp.io/api/function/queryTables",
@@ -17,7 +15,7 @@ const fetchGlideData = async (rowId) => {
         appID: "OF5lh0TbgZdeYgCrSdG6",
         queries: [
           {
-            tableName: "native-table-ud73I28iqShdMdbNB9Gj",
+            tableName: "native-table-ud73I28iqSzVl5Nt8qLo5",
             rowID: rowId,
             utc: true,
           },
@@ -55,54 +53,30 @@ exports.handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body);
-    console.log("Received request:", {
-      ...body,
-      type: body.type || "update",
-      source: body.glide_source || "direct",
-      timestamp: new Date().toISOString(),
-    });
+    console.log("Received request:", body);
 
     let values;
-    let source = body.type || "update";
+    let mode = "light";
+    const source = body.glide_source || "direct";
     const timestamp = new Date().toISOString();
 
-    // Store Row ID from json_column
+    // Handle json_column data first
     if (body.json_column) {
       try {
         const parsed = JSON.parse(body.json_column);
-        if (parsed["Row ID"]) {
-          lastKnownRowId = parsed["Row ID"];
-        }
+        values = [
+          Number(parsed.no_boost),
+          Number(parsed.no_makedown),
+          Number(parsed.makedown),
+        ].map((value) => Number(value.toFixed(1)));
+        mode = parsed.mode || mode;
       } catch (error) {
         console.error("Error parsing json_column:", error);
       }
     }
 
-    // Initial load - fetch from Glide API using Row ID
-    if (body.type === "initial-load") {
-      try {
-        if (!lastKnownRowId) {
-          throw new Error("No Row ID available");
-        }
-        const glideData = await fetchGlideData(lastKnownRowId);
-        console.log("Glide API response:", JSON.stringify(glideData, null, 2));
-
-        if (glideData.rows && glideData.rows.length > 0) {
-          const row = glideData.rows[0];
-          values = [
-            Number(row.no_boost),
-            Number(row.no_makedown),
-            Number(row.makedown),
-          ].map((value) => Number(value.toFixed(1)));
-        }
-      } catch (error) {
-        console.error("Glide API fetch error:", error);
-        throw new Error("Failed to fetch data from Glide");
-      }
-    }
-
-    // Handle value updates
-    if (body.no_boost && body.no_makedown && body.makedown) {
+    // If no json_column data, try direct values
+    if (!values && body.no_boost && body.no_makedown && body.makedown) {
       values = [
         Number(body.no_boost),
         Number(body.no_makedown),
@@ -111,12 +85,14 @@ exports.handler = async (event, context) => {
         if (isNaN(value)) throw new Error(`Invalid number in update: ${value}`);
         return Number(value.toFixed(1));
       });
+      mode = body.mode || mode;
 
+      // Only trigger Pusher for updates, not initial loads
       await pusher.trigger("chart-updates", "value-update", {
         type: "update",
         source,
         values,
-        mode: "dark",
+        mode,
         timestamp,
       });
     }
@@ -129,7 +105,7 @@ exports.handler = async (event, context) => {
         success: true,
         source,
         values,
-        mode: "dark",
+        mode,
         timestamp,
         processingTime: endTime - startTime,
       }),
@@ -137,7 +113,7 @@ exports.handler = async (event, context) => {
   } catch (error) {
     console.error("Error:", error);
     return {
-      statusCode: error.message.includes("Glide") ? 503 : 400,
+      statusCode: 400,
       headers,
       body: JSON.stringify({
         success: false,

@@ -5,7 +5,8 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://js.pusher.com/8.0/pusher.min.js"></script>
     <style>
-      body, html {
+      body,
+      html {
         margin: 0;
         padding: 0;
         width: 100%;
@@ -24,7 +25,7 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: rgba(255,0,0,0.1);
+        background: rgba(255, 0, 0, 0.1);
         padding: 20px;
         border-radius: 8px;
         display: none;
@@ -63,15 +64,15 @@
       });
 
       const channel = pusher.subscribe("chart-updates");
-      
+
       function showError(message) {
-        const errorDiv = document.getElementById('error-message');
+        const errorDiv = document.getElementById("error-message");
         errorDiv.textContent = message;
-        errorDiv.style.display = 'block';
+        errorDiv.style.display = "block";
       }
 
       function hideError() {
-        document.getElementById('error-message').style.display = 'none';
+        document.getElementById("error-message").style.display = "none";
       }
 
       function getColorForValue(value) {
@@ -129,50 +130,46 @@
               },
             },
           },
-          series: [{
-            name: "Values",
-            data: initialValues.map(value => ({
-              y: value,
-              color: getColorForValue(value)
-            }))
-          }]
+          series: [
+            {
+              name: "Values",
+              data: initialValues.map((value) => ({
+                y: value,
+                color: getColorForValue(value),
+              })),
+            },
+          ],
         });
       }
 
-      async function fetchWithRetry(retries = 3, baseDelay = 1000) {
-        for (let i = 0; i < retries; i++) {
-          try {
-            const response = await fetch("/.netlify/functions/get-chart-values", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ type: "initial-load" })
-            });
+      async function fetchWithRetry(retries = 1, baseDelay = 1000) {
+        try {
+          const response = await fetch("/.netlify/functions/get-chart-values", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "initial-load" }),
+          });
 
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            const data = await response.json();
-            
-            if (!data.success) throw new Error('API returned unsuccessful status');
-            if (!data.values || !Array.isArray(data.values)) throw new Error('Invalid data format');
-            
-            hideError();
-            return data;
-          } catch (error) {
-            console.error(`Attempt ${i + 1} failed:`, error);
-            const delay = baseDelay * Math.pow(2, i);
-            
-            if (i < retries - 1) {
-              showError(`Loading data... Retry ${i + 1} of ${retries}`);
-              await new Promise(resolve => setTimeout(resolve, delay));
-            } else {
-              showError('Unable to load chart data. Please refresh the page.');
-              throw error;
-            }
-          }
+          if (!response.ok)
+            throw new Error(`HTTP error! status: ${response.status}`);
+
+          const data = await response.json();
+          if (!data.success)
+            throw new Error("API returned unsuccessful status");
+          if (!data.values || !Array.isArray(data.values))
+            throw new Error("Invalid data format");
+
+          hideError();
+          return data;
+        } catch (error) {
+          console.error("Failed to load data:", error);
+          showError("Unable to load chart data. Please refresh the page.");
+          throw error;
         }
       }
 
       function showLoading() {
-        showError('Loading chart data...');
+        showError("Loading chart data...");
       }
 
       async function init() {
@@ -182,12 +179,10 @@
           createChart(values, mode);
 
           channel.bind("value-update", function (data) {
-            console.log("Pusher update received:", data);
-
             if (data.type === "update" && Array.isArray(data.values)) {
-              const chartData = data.values.map(value => ({
+              const chartData = data.values.map((value) => ({
                 y: Number(value),
-                color: getColorForValue(Number(value))
+                color: getColorForValue(Number(value)),
               }));
 
               chartData.forEach((point, index) => {
@@ -196,33 +191,36 @@
 
               if (data.mode) {
                 const theme = getThemeColors(data.mode);
-                window.chart.update({
-                  chart: {
-                    backgroundColor: theme.background,
-                    style: { color: theme.text }
+                window.chart.update(
+                  {
+                    chart: {
+                      backgroundColor: theme.background,
+                      style: { color: theme.text },
+                    },
+                    xAxis: {
+                      labels: { style: { color: theme.text } },
+                      lineColor: theme.grid,
+                      tickColor: theme.grid,
+                    },
+                    yAxis: {
+                      labels: { style: { color: theme.text } },
+                      gridLineColor: theme.grid,
+                      lineColor: theme.grid,
+                    },
+                    tooltip: {
+                      backgroundColor: theme.tooltip,
+                      style: { color: theme.text },
+                    },
+                    plotOptions: {
+                      column: {
+                        dataLabels: {
+                          style: { color: theme.text },
+                        },
+                      },
+                    },
                   },
-                  xAxis: {
-                    labels: { style: { color: theme.text } },
-                    lineColor: theme.grid,
-                    tickColor: theme.grid
-                  },
-                  yAxis: {
-                    labels: { style: { color: theme.text } },
-                    gridLineColor: theme.grid,
-                    lineColor: theme.grid
-                  },
-                  tooltip: {
-                    backgroundColor: theme.tooltip,
-                    style: { color: theme.text }
-                  },
-                  plotOptions: {
-                    column: {
-                      dataLabels: {
-                        style: { color: theme.text }
-                      }
-                    }
-                  }
-                }, false);
+                  false
+                );
               }
 
               window.chart.redraw(true);
@@ -243,7 +241,7 @@
 
           resizeObserver.observe(container);
         } catch (error) {
-          console.error('Failed to initialize chart:', error);
+          console.error("Failed to initialize chart:", error);
         }
       }
 
