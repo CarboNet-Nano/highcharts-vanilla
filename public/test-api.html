@@ -14,6 +14,10 @@
         height: 100%;
       }
 
+      input[type="html"] {
+        display: none;
+      }
+
       .loading-container {
         position: absolute;
         width: 100%;
@@ -88,7 +92,6 @@
         return "#388E3C";
       }
 
-      // Create initial empty chart
       function createEmptyChart(theme) {
         const container = document.getElementById("chart-container");
         return Highcharts.chart(container, {
@@ -145,12 +148,10 @@
           window.chart = createEmptyChart(theme);
         }
 
-        // Hide loading screen
         const loadingScreen = document.getElementById("loading-screen");
         loadingScreen.style.opacity = "0";
         setTimeout(() => (loadingScreen.style.display = "none"), 300);
 
-        // Animate in the data
         window.chart.series[0].setData(
           values.map((value) => ({
             y: value,
@@ -169,7 +170,6 @@
         updateChart(data);
       });
 
-      // Create empty chart immediately with system theme
       const initialTheme = window.matchMedia("(prefers-color-scheme: dark)")
         .matches
         ? THEME_COLORS.dark
