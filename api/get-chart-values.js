@@ -1,5 +1,3 @@
-const { performance } = require("perf_hooks");
-
 exports.handler = async (event, context) => {
   const headers = {
     "Access-Control-Allow-Origin": "*",
@@ -12,21 +10,19 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { json_column } = JSON.parse(event.body);
-    const parsed = JSON.parse(json_column);
-
+    const body = JSON.parse(event.body);
     const values = [
-      Number(parsed.no_boost),
-      Number(parsed.no_makedown),
-      Number(parsed.makedown),
-    ].map((value) => Number(value.toFixed(1)));
+      Number(body.no_boost),
+      Number(body.no_makedown),
+      Number(body.makedown)
+    ].map(value => Number(value.toFixed(1)));
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         values,
-        mode: parsed.mode || "light",
+        mode: body.mode || 'light'
       }),
     };
   } catch (error) {
