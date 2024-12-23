@@ -104,23 +104,8 @@
         }).observe(container);
       }
 
-      console.log("Page loaded, fetching data...");
-      fetch("/.netlify/functions/get-chart-values", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "initial" }),
-      })
-        .then((response) => {
-          console.log("Received response:", response);
-          return response.json();
-        })
-        .then((data) => {
-          console.log("Parsed data:", data);
-          createChart(data);
-        })
-        .catch((error) => {
-          console.error("Error:", error);
-        });
+      // The chart will be created when Glide sends the initialization data
+      console.log("Page loaded, waiting for Glide initialization...");
     </script>
   </body>
 </html>
