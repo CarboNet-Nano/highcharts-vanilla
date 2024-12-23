@@ -37,61 +37,71 @@
         return "#388E3C";
       }
 
-      function createChart({ values, mode }) {
-        console.log("Creating chart with:", { values, mode });
+      function createChart({ chartId, values, mode }) {
+        console.log("Creating chart with:", { chartId, values, mode });
         const theme = THEME_COLORS[mode] || THEME_COLORS.light;
         const container = document.getElementById("chart-container");
 
-        window.chart = Highcharts.chart(container, {
-          chart: {
-            type: "column",
-            animation: false,
-            backgroundColor: theme.background,
-            style: { color: theme.text },
-          },
-          title: { text: null },
-          xAxis: {
-            categories: ["No Boost", "No Makedown", "Makedown"],
-            labels: { style: { color: theme.text } },
-            gridLineWidth: 0,
-            lineColor: theme.grid,
-            tickColor: theme.grid,
-          },
-          yAxis: {
-            title: { text: null },
-            labels: {
-              format: "{value}%",
+        if (!container) {
+          console.error("Chart container not found");
+          return;
+        }
+
+        try {
+          window.chart = Highcharts.chart(container, {
+            chart: {
+              type: "column",
+              animation: false,
+              backgroundColor: theme.background,
               style: { color: theme.text },
             },
-            gridLineWidth: 1,
-            gridLineColor: theme.grid,
-            lineColor: theme.grid,
-          },
-          tooltip: {
-            backgroundColor: theme.tooltip,
-            style: { color: theme.text },
-            borderWidth: 0,
-          },
-          plotOptions: {
-            column: {
-              animation: false,
-              dataLabels: {
-                enabled: true,
-                format: "{y:.1f}%",
+            title: { text: null },
+            xAxis: {
+              categories: ["No Boost", "No Makedown", "Makedown"],
+              labels: { style: { color: theme.text } },
+              gridLineWidth: 0,
+              lineColor: theme.grid,
+              tickColor: theme.grid,
+            },
+            yAxis: {
+              title: { text: null },
+              labels: {
+                format: "{value}%",
                 style: { color: theme.text },
               },
+              gridLineWidth: 1,
+              gridLineColor: theme.grid,
+              lineColor: theme.grid,
             },
-          },
-          series: [
-            {
-              name: "Values",
-              data: values.map((value) => ({
-                y: value,
-                color: getColorForValue(value),
-              })),
+            tooltip: {
+              backgroundColor: theme.tooltip,
+              style: { color: theme.text },
+              borderWidth: 0,
             },
-          ],
-        });
+            plotOptions: {
+              column: {
+                animation: false,
+                dataLabels: {
+                  enabled: true,
+                  format: "{y:.1f}%",
+                  style: { color: theme.text },
+                },
+              },
+            },
+            series: [
+              {
+                name: "Values",
+                data: values.map((value) => ({
+                  y: value,
+                  color: getColorForValue(value),
+                })),
+              },
+            ],
+          });
+          console.log("Chart created successfully");
+        } catch (error) {
+          console.error("Error creating chart:", error);
+        }
 
         new ResizeObserver((entries) => {
           if (window.chart) {
@@ -104,8 +114,15 @@
         }).observe(container);
       }
 
-      // The chart will be created when Glide sends the initialization data
-      console.log("Page loaded, waiting for Glide initialization...");
+      window.addEventListener("load", () => {
+        console.log(
+          "Page loaded, chart container:",
+          document.getElementById("chart-container")
+        );
+      });
+
+      // Wait for Glide initialization
+      console.log("Waiting for Glide initialization...");
     </script>
   </body>
 </html>
