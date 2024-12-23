@@ -1,5 +1,12 @@
 const { performance } = require("perf_hooks");
 const pusher = require("./pusher");
+const glide = require("@glideapps/tables");
+
+const calculationModelsTable = glide.table({
+  token: "722b598d-1746-4575-bfe8-2fa4fe92a2ed",
+  app: "OF5lh0TbgZdeYgCrSdG6",
+  table: "native-table-ud73I28iqShdMdbNB9Gj",
+});
 
 exports.handler = async (event, context) => {
   const startTime = performance.now();
@@ -27,34 +34,37 @@ exports.handler = async (event, context) => {
       ...body,
       type: body.type || "update",
       source: body.glide_source || "direct",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     const mode = body.mode || "light";
     let values;
     let source = body.type || "update";
     const timestamp = new Date().toISOString();
 
-    // Initial load with json_column handling
+    // Initial load - fetch from Glide
     if (body.type === "initial-load") {
-      if (body.json_column) {
-        try {
-          const parsed = JSON.parse(body.json_column);
+      try {
+        const rows = await calculationModelsTable.get();
+        const latestRow = rows[rows.length - 1]; // Get most recent entry
+
+        if (latestRow) {
+          // Extract values from json_column
           values = [
-            Number(parsed.no_boost),
-            Number(parsed.no_makedown),
-            Number(parsed.makedown),
-          ].map(value => {
-            if (isNaN(value)) throw new Error(`Invalid number in json_column: ${value}`);
+            Number(latestRow.no_boost),
+            Number(latestRow.no_makedown),
+            Number(latestRow.makedown),
+          ].map((value) => {
+            if (isNaN(value))
+              throw new Error(`Invalid number from Glide: ${value}`);
             return Number(value.toFixed(1));
           });
-        } catch (error) {
-          console.error("Error parsing json_column:", error);
-          throw new Error("Invalid json_column format");
+        } else {
+          throw new Error("No data available from Glide");
         }
-      } else {
-        // Return default values for initial load without json_column
-        values = [0, 0, 0];
+      } catch (error) {
+        console.error("Glide API error:", error);
+        throw new Error("Failed to fetch data from Glide");
       }
     }
 
@@ -64,37 +74,18 @@ exports.handler = async (event, context) => {
         Number(body.no_boost),
         Number(body.no_makedown),
         Number(body.makedown),
-      ].map(value => {
+      ].map((value) => {
         if (isNaN(value)) throw new Error(`Invalid number in update: ${value}`);
         return Number(value.toFixed(1));
       });
 
-      let retries = 3;
-      let lastError;
-
-      while (retries > 0) {
-        try {
-          await pusher.trigger("chart-updates", "value-update", {
-            type: "update",
-            source,
-            values,
-            mode,
-            timestamp,
-          });
-          break;
-        } catch (error) {
-          lastError = error;
-          retries--;
-          if (retries > 0) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-      }
-
-      if (retries === 0) {
-        console.error("Failed to send Pusher message after retries:", lastError);
-        throw new Error("Failed to update chart after multiple retries");
-      }
+      await pusher.trigger("chart-updates", "value-update", {
+        type: "update",
+        source,
+        values,
+        mode,
+        timestamp,
+      });
     }
 
     const endTime = performance.now();
@@ -113,7 +104,7 @@ exports.handler = async (event, context) => {
   } catch (error) {
     console.error("Error:", error);
     return {
-      statusCode: 400,
+      statusCode: error.message.includes("Glide") ? 503 : 400,
       headers,
       body: JSON.stringify({
         success: false,
