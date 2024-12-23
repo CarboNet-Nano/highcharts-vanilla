@@ -3,6 +3,7 @@
   <head>
     <title>Highcharts Real-time Chart</title>
     <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://js.pusher.com/8.0.1/pusher.min.js"></script>
     <style>
       body,
       html {
@@ -18,10 +19,17 @@
         justify-content: center;
         align-items: center;
       }
+      #error-message {
+        color: red;
+        padding: 20px;
+        text-align: center;
+      }
     </style>
   </head>
   <body>
-    <div id="chart-container"></div>
+    <div id="chart-container">
+      <div id="error-message"></div>
+    </div>
 
     <script>
       console.log("Script initialized");
@@ -41,6 +49,15 @@
         },
       };
 
+      const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
+        cluster: "us3",
+      });
+
+      function showError(message) {
+        console.error(message);
+        document.getElementById("error-message").textContent = message;
+      }
+
       function getColorForValue(value) {
         console.log("Getting color for value:", value);
         if (value <= 15) return "#D32F2F";
@@ -52,12 +69,13 @@
         console.log("createChart called with data:", data);
 
         if (!data) {
-          console.error("createChart: No data provided");
+          showError("No data provided to chart");
           return;
         }
 
         if (!Array.isArray(data.values)) {
-          console.error("createChart: Invalid values format:", data.values);
+          showError("Invalid data format received");
+          console.error("Data received:", data);
           return;
         }
 
@@ -69,7 +87,7 @@
         const container = document.getElementById("chart-container");
 
         if (!container) {
-          console.error("Chart container not found");
+          showError("Chart container not found");
           return;
         }
 
@@ -132,8 +150,9 @@
             ],
           });
           console.log("Chart created successfully");
+          document.getElementById("error-message").textContent = "";
         } catch (error) {
-          console.error("Error creating chart:", error);
+          showError(`Error creating chart: ${error.message}`);
           console.error("Error stack:", error.stack);
         }
 
@@ -147,8 +166,14 @@
         }).observe(container);
       }
 
-      console.log("Exposing createChart globally");
-      window.createChart = createChart;
+      // Subscribe to Pusher channel
+      const channel = pusher.subscribe("chart-updates");
+      channel.bind("value-update", function (data) {
+        console.log("Received Pusher update:", data);
+        createChart(data);
+      });
+
+      console.log("Pusher subscription initialized");
     </script>
   </body>
 </html>

@@ -1,5 +1,8 @@
-// get-chart-values.js
+const { performance } = require("perf_hooks");
+const pusher = require("./pusher");
+
 exports.handler = async (event, context) => {
+  const startTime = performance.now();
   console.log("Handler called with event:", {
     method: event.httpMethod,
     headers: event.headers,
@@ -10,20 +13,14 @@ exports.handler = async (event, context) => {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Max-Age": "86400",
   };
 
-  if (event.httpMethod === "OPTIONS") {
-    console.log("Handling OPTIONS request");
+  if (event.httpMethod === "OPTIONS")
     return { statusCode: 200, headers, body: "" };
-  }
 
   try {
-    const rawBody = event.body;
-    console.log("Raw request body:", rawBody);
-
     const body = JSON.parse(event.body);
-    console.log("Parsed request body:", body);
-
     const data = body.json_column ? JSON.parse(body.json_column) : body;
     console.log("Final data object:", data);
 
@@ -32,33 +29,58 @@ exports.handler = async (event, context) => {
       Number(data.no_makedown),
       Number(data.makedown),
     ].map((value) => {
-      const processed = Number(value.toFixed(1));
-      console.log(`Processed value: ${value} -> ${processed}`);
-      return processed;
+      if (isNaN(value)) throw new Error(`Invalid number: ${value}`);
+      return Number(value.toFixed(1));
     });
 
-    console.log("Final values array:", values);
+    console.log("Sending to Pusher:", values);
 
-    const response = {
-      values,
-      mode: data.mode || "light",
-    };
-    console.log("Sending response:", response);
+    let retries = 3;
+    let lastError;
+
+    while (retries > 0) {
+      try {
+        await pusher.trigger("chart-updates", "value-update", {
+          type: "initial",
+          values,
+          mode: data.mode || "light",
+          timestamp: new Date().toISOString(),
+        });
+        break;
+      } catch (error) {
+        lastError = error;
+        retries--;
+        if (retries > 0)
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+
+    if (retries === 0) {
+      console.error("Failed to send Pusher message after retries:", lastError);
+      throw lastError;
+    }
+
+    const endTime = performance.now();
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify(response),
+      body: JSON.stringify({
+        success: true,
+        values,
+        mode: data.mode || "light",
+        timestamp: new Date().toISOString(),
+        processingTime: endTime - startTime,
+      }),
     };
   } catch (error) {
-    console.error("Error processing request:", error);
-    console.error("Stack trace:", error.stack);
+    console.error("Error:", error);
     return {
       statusCode: 400,
       headers,
       body: JSON.stringify({
-        error: error.message,
-        stack: error.stack,
+        success: false,
+        message: error.message,
         receivedBody: event.body,
       }),
     };
