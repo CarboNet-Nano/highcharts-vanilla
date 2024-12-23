@@ -21,8 +21,8 @@
         justify-content: center;
         align-items: center;
         background-color: var(--background-color, #ffffff);
-        transition: opacity 0.5s;
-        z-index: 1000;
+        opacity: 1;
+        transition: opacity 0.3s;
       }
 
       .loading-text {
@@ -36,11 +36,13 @@
         display: flex;
         justify-content: center;
         align-items: center;
+        opacity: 0;
         transform: scaleY(0);
-        transition: transform 0.5s ease-out;
+        transition: transform 0.5s ease-out, opacity 0.3s;
       }
 
       #chart-container.loaded {
+        opacity: 1;
         transform: scaleY(1);
       }
 
@@ -87,34 +89,32 @@
       }
 
       function getColorForValue(value) {
-        console.log("Getting color for value:", value);
         if (value <= 15) return "#D32F2F";
         if (value <= 45) return "#FFCA28";
         return "#388E3C";
       }
 
+      function hideLoadingScreen() {
+        const loadingScreen = document.getElementById("loading-screen");
+        const chartContainer = document.getElementById("chart-container");
+
+        loadingScreen.style.opacity = "0";
+        setTimeout(() => {
+          loadingScreen.style.display = "none";
+          chartContainer.classList.add("loaded");
+        }, 300);
+      }
+
       function createChart(data) {
-        console.log("createChart called with data:", data);
-
-        if (!data) {
-          showError("No data provided to chart");
-          return;
-        }
-
-        if (!Array.isArray(data.values)) {
+        if (!data || !Array.isArray(data.values)) {
           showError("Invalid data format received");
-          console.error("Data received:", data);
           return;
         }
 
         const { values, mode } = data;
-        console.log("Extracted values:", values);
-        console.log("Extracted mode:", mode);
-
         const theme = THEME_COLORS[mode] || THEME_COLORS.light;
         const container = document.getElementById("chart-container");
 
-        // Set theme variables for loading screen
         document.documentElement.style.setProperty(
           "--background-color",
           theme.background
@@ -127,7 +127,6 @@
         }
 
         try {
-          console.log("Initializing Highcharts with config");
           window.chart = Highcharts.chart(container, {
             chart: {
               type: "column",
@@ -137,16 +136,7 @@
               marginLeft: 50,
               marginTop: 20,
               events: {
-                load: function () {
-                  document.getElementById("loading-screen").style.opacity = "0";
-                  setTimeout(() => {
-                    document.getElementById("loading-screen").style.display =
-                      "none";
-                    document
-                      .getElementById("chart-container")
-                      .classList.add("loaded");
-                  }, 500);
-                },
+                redraw: hideLoadingScreen,
               },
             },
             title: { text: null },
@@ -188,17 +178,17 @@
             series: [
               {
                 name: "Values",
-                data: values.map((value) => {
-                  console.log("Processing value for chart:", value);
-                  return {
-                    y: value,
-                    color: getColorForValue(value),
-                  };
-                }),
+                data: values.map((value) => ({
+                  y: value,
+                  color: getColorForValue(value),
+                })),
               },
             ],
           });
-          console.log("Chart created successfully");
+
+          // Ensure loading screen is hidden after chart creation
+          setTimeout(hideLoadingScreen, 500);
+
           document.getElementById("error-message").textContent = "";
         } catch (error) {
           showError(`Error creating chart: ${error.message}`);
@@ -207,21 +197,19 @@
 
         new ResizeObserver((entries) => {
           if (window.chart) {
-            const width = entries[0].contentRect.width;
-            const height = entries[0].contentRect.height;
-            console.log("Resizing chart to:", { width, height });
-            window.chart.setSize(width, height, false);
+            window.chart.setSize(
+              entries[0].contentRect.width,
+              entries[0].contentRect.height,
+              false
+            );
           }
         }).observe(container);
       }
 
       const channel = pusher.subscribe("chart-updates");
       channel.bind("value-update", function (data) {
-        console.log("Received Pusher update:", data);
         createChart(data);
       });
-
-      console.log("Pusher subscription initialized");
     </script>
   </body>
 </html>
