@@ -61,7 +61,6 @@ exports.handler = async (event, context) => {
       timestamp: new Date().toISOString(),
     });
 
-    const mode = body.mode || "light";
     let values;
     let source = body.type || "update";
     const timestamp = new Date().toISOString();
@@ -79,16 +78,15 @@ exports.handler = async (event, context) => {
     if (body.type === "initial-load") {
       try {
         const glideData = await fetchGlideData();
-        console.log("Glide API response:", glideData);
+        console.log(
+          "Glide API response full:",
+          JSON.stringify(glideData, null, 2)
+        );
 
-        // Use latest row data or fallback to lastKnownValues
         if (glideData && glideData.rows && glideData.rows.length > 0) {
           const latestRow = glideData.rows[glideData.rows.length - 1];
-          values = [
-            Number(latestRow.no_boost),
-            Number(latestRow.no_makedown),
-            Number(latestRow.makedown),
-          ].map((value) => Number(value.toFixed(1)));
+          console.log("Latest row:", JSON.stringify(latestRow, null, 2));
+          values = lastKnownValues;
         } else {
           values = lastKnownValues || [0, 0, 0];
         }
@@ -113,7 +111,7 @@ exports.handler = async (event, context) => {
         type: "update",
         source,
         values,
-        mode,
+        mode: "dark",
         timestamp,
       });
     }
@@ -126,7 +124,7 @@ exports.handler = async (event, context) => {
         success: true,
         source,
         values: values || lastKnownValues || [0, 0, 0],
-        mode,
+        mode: "dark",
         timestamp,
         processingTime: endTime - startTime,
       }),
