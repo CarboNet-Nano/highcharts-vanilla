@@ -114,15 +114,37 @@
         }).observe(container);
       }
 
-      window.addEventListener("load", () => {
-        console.log(
-          "Page loaded, chart container:",
-          document.getElementById("chart-container")
-        );
-      });
-
-      // Wait for Glide initialization
-      console.log("Waiting for Glide initialization...");
+      // Load initial data
+      fetch("/.netlify/functions/get-chart-values", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          json_column: JSON.stringify({
+            chartId: "test-chart",
+            no_boost: 35.10204081632654,
+            no_makedown: 46.27901453609963,
+            makedown: 78.6734693877551,
+            mode: "dark",
+            glide_source: "glide init",
+          }),
+        }),
+      })
+        .then((response) => {
+          console.log("Received response:", response);
+          if (!response.ok)
+            throw new Error(`HTTP error! status: ${response.status}`);
+          return response.json();
+        })
+        .then((data) => {
+          console.log("Creating chart with data:", data);
+          createChart(data);
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+          document.getElementById(
+            "chart-container"
+          ).innerHTML = `<div style="color: red">Error loading chart: ${error.message}</div>`;
+        });
     </script>
   </body>
 </html>
