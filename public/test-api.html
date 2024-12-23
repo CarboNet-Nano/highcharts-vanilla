@@ -1,3 +1,4 @@
+// test-api.html
 <!DOCTYPE html>
 <html>
   <head>
@@ -24,6 +25,8 @@
     <div id="chart-container"></div>
 
     <script>
+      console.log("Script initialized");
+
       const THEME_COLORS = {
         light: {
           background: "#ffffff",
@@ -40,19 +43,30 @@
       };
 
       function getColorForValue(value) {
+        console.log("Getting color for value:", value);
         if (value <= 15) return "#D32F2F";
         if (value <= 45) return "#FFCA28";
         return "#388E3C";
       }
 
       function createChart(data) {
-        console.log("Creating chart with data:", data);
-        if (!data || !data.values) {
-          console.error("Invalid chart data");
+        console.log("createChart called with data:", data);
+
+        // Validation
+        if (!data) {
+          console.error("createChart: No data provided");
+          return;
+        }
+
+        if (!Array.isArray(data.values)) {
+          console.error("createChart: Invalid values format:", data.values);
           return;
         }
 
         const { values, mode } = data;
+        console.log("Extracted values:", values);
+        console.log("Extracted mode:", mode);
+
         const theme = THEME_COLORS[mode] || THEME_COLORS.light;
         const container = document.getElementById("chart-container");
 
@@ -62,6 +76,7 @@
         }
 
         try {
+          console.log("Initializing Highcharts with config");
           window.chart = Highcharts.chart(container, {
             chart: {
               type: "column",
@@ -108,29 +123,33 @@
             series: [
               {
                 name: "Values",
-                data: values.map((value) => ({
-                  y: value,
-                  color: getColorForValue(value),
-                })),
+                data: values.map((value) => {
+                  console.log("Processing value for chart:", value);
+                  return {
+                    y: value,
+                    color: getColorForValue(value),
+                  };
+                }),
               },
             ],
           });
           console.log("Chart created successfully");
         } catch (error) {
           console.error("Error creating chart:", error);
+          console.error("Error stack:", error.stack);
         }
 
         new ResizeObserver((entries) => {
           if (window.chart) {
-            window.chart.setSize(
-              entries[0].contentRect.width,
-              entries[0].contentRect.height,
-              false
-            );
+            const width = entries[0].contentRect.width;
+            const height = entries[0].contentRect.height;
+            console.log("Resizing chart to:", { width, height });
+            window.chart.setSize(width, height, false);
           }
         }).observe(container);
       }
 
+      console.log("Exposing createChart globally");
       window.createChart = createChart;
     </script>
   </body>
