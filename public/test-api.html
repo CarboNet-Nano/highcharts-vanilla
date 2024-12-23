@@ -4,7 +4,8 @@
     <title>Highcharts Real-time Chart</title>
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <style>
-      body, html {
+      body,
+      html {
         margin: 0;
         padding: 0;
         width: 100%;
@@ -44,8 +45,14 @@
         return "#388E3C";
       }
 
-      function createChart({ chartId, values, mode }) {
-        console.log("Creating chart with:", { chartId, values, mode });
+      function createChart(data) {
+        console.log("Creating chart with data:", data);
+        if (!data || !data.values) {
+          console.error("Invalid chart data");
+          return;
+        }
+
+        const { values, mode } = data;
         const theme = THEME_COLORS[mode] || THEME_COLORS.light;
         const container = document.getElementById("chart-container");
 
@@ -63,7 +70,7 @@
               style: { color: theme.text },
               spacing: [0, 0, 0, 0],
               marginLeft: 50,
-              marginTop: 20
+              marginTop: 20,
             },
             title: { text: null },
             xAxis: {
@@ -124,38 +131,7 @@
         }).observe(container);
       }
 
-      // Get row ID from URL parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      const rowId = urlParams.get('rowId');
-
-      // Fetch chart data
-      fetch("/.netlify/functions/get-chart-values", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          json_column: JSON.stringify({
-            chartId: rowId || "test-chart",
-            no_boost: null,
-            no_makedown: null,
-            makedown: null,
-            mode: "dark",
-            glide_source: "glide init"
-          })
-        })
-      })
-        .then(response => {
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          return response.json();
-        })
-        .then(data => {
-          console.log("Creating chart with data:", data);
-          createChart(data);
-        })
-        .catch(error => {
-          console.error("Error:", error);
-          document.getElementById("chart-container").innerHTML = 
-            `<div style="color: red">Error loading chart: ${error.message}</div>`;
-        });
+      window.createChart = createChart;
     </script>
   </body>
 </html>

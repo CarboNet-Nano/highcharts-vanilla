@@ -10,31 +10,26 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const rawBody = event.body;
-    console.log("Raw body:", rawBody);
     const body = JSON.parse(event.body);
-    console.log("Parsed body:", body);
+    console.log("Received request body:", body);
 
     const data = body.json_column ? JSON.parse(body.json_column) : body;
     console.log("Final data:", data);
-
-    const values = [
-      Number(data.no_boost),
-      Number(data.no_makedown),
-      Number(data.makedown),
-    ].map((value) => Number(value.toFixed(1)));
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        chartId: data.chartId,
-        values,
+        values: [
+          Number(data.no_boost),
+          Number(data.no_makedown),
+          Number(data.makedown),
+        ].map((value) => Number(value.toFixed(1))),
         mode: data.mode || "light",
       }),
     };
   } catch (error) {
-    console.error("Error processing request:", error);
+    console.error("Error:", error);
     return {
       statusCode: 400,
       headers,
