@@ -38,6 +38,7 @@
       }
 
       function createChart({ values, mode }) {
+        console.log("Creating chart with:", { values, mode });
         const theme = THEME_COLORS[mode] || THEME_COLORS.light;
         const container = document.getElementById("chart-container");
 
@@ -103,13 +104,23 @@
         }).observe(container);
       }
 
+      console.log("Page loaded, fetching data...");
       fetch("/.netlify/functions/get-chart-values", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "initial" }),
       })
-        .then((response) => response.json())
-        .then(createChart);
+        .then((response) => {
+          console.log("Received response:", response);
+          return response.json();
+        })
+        .then((data) => {
+          console.log("Parsed data:", data);
+          createChart(data);
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+        });
     </script>
   </body>
 </html>

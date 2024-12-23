@@ -11,21 +11,37 @@ exports.handler = async (event, context) => {
 
   try {
     const body = JSON.parse(event.body);
-    const values = [
-      Number(body.no_boost),
-      Number(body.no_makedown),
-      Number(body.makedown)
-    ].map(value => Number(value.toFixed(1)));
+    console.log("Received request body:", body);
+
+    if (body.json_column) {
+      const parsed = JSON.parse(body.json_column);
+      console.log("Parsed json_column:", parsed);
+
+      const values = [
+        Number(parsed.no_boost),
+        Number(parsed.no_makedown),
+        Number(parsed.makedown),
+      ].map((value) => Number(value.toFixed(1)));
+
+      console.log("Processed values:", values);
+
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          values,
+          mode: parsed.mode || "light",
+        }),
+      };
+    }
 
     return {
-      statusCode: 200,
+      statusCode: 400,
       headers,
-      body: JSON.stringify({
-        values,
-        mode: body.mode || 'light'
-      }),
+      body: JSON.stringify({ error: "Missing json_column data" }),
     };
   } catch (error) {
+    console.error("Error processing request:", error);
     return {
       statusCode: 400,
       headers,
