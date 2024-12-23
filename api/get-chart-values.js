@@ -21,7 +21,7 @@ exports.handler = async (event, context) => {
         Number(parsed.no_boost),
         Number(parsed.no_makedown),
         Number(parsed.makedown),
-      ].map((value) => Number(value.toFixed(1)));
+      ].map(value => Number(value.toFixed(1)));
 
       console.log("Processed values:", values);
 
