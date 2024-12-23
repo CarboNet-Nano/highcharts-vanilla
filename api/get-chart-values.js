@@ -6,6 +6,12 @@ const calculationModelsTable = glide.table({
   token: "722b598d-1746-4575-bfe8-2fa4fe92a2ed",
   app: "OF5lh0TbgZdeYgCrSdG6",
   table: "native-table-ud73I28iqShdMdbNB9Gj",
+  columns: {
+    mode: { type: "string", name: "Cen5T" },
+    rowOwnerUserEmail: { type: "email-address", name: "78J2c" },
+    formCurrentUser1: { type: "email-address", name: "iAfZv" },
+    enteredUnitsSoldKg: { type: "number", name: "E1KLz" },
+  },
 });
 
 exports.handler = async (event, context) => {
@@ -46,19 +52,11 @@ exports.handler = async (event, context) => {
     if (body.type === "initial-load") {
       try {
         const rows = await calculationModelsTable.get();
-        const latestRow = rows[rows.length - 1]; // Get most recent entry
+        console.log("Glide Data:", rows);
+        const latestRow = rows[rows.length - 1];
 
         if (latestRow) {
-          // Extract values from json_column
-          values = [
-            Number(latestRow.no_boost),
-            Number(latestRow.no_makedown),
-            Number(latestRow.makedown),
-          ].map((value) => {
-            if (isNaN(value))
-              throw new Error(`Invalid number from Glide: ${value}`);
-            return Number(value.toFixed(1));
-          });
+          values = [35.1, 33.9, 74.4]; // Hardcoded for testing
         } else {
           throw new Error("No data available from Glide");
         }
