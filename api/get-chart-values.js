@@ -1,7 +1,6 @@
 const { performance } = require("perf_hooks");
 
 exports.handler = async (event, context) => {
-  const startTime = performance.now();
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
@@ -12,66 +11,29 @@ exports.handler = async (event, context) => {
     return { statusCode: 200, headers, body: "" };
   }
 
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ success: false, message: "Method not allowed" }),
-    };
-  }
-
   try {
-    const body = JSON.parse(event.body);
-    console.log("Received request:", body);
+    const { json_column } = JSON.parse(event.body);
+    const parsed = JSON.parse(json_column);
 
-    let values;
-    let mode = "light";
-    const source = body.glide_source || "direct";
-    const timestamp = new Date().toISOString();
+    const values = [
+      Number(parsed.no_boost),
+      Number(parsed.no_makedown),
+      Number(parsed.makedown),
+    ].map((value) => Number(value.toFixed(1)));
 
-    if (body.json_column) {
-      const parsed = JSON.parse(body.json_column);
-      values = [
-        Number(parsed.no_boost),
-        Number(parsed.no_makedown),
-        Number(parsed.makedown),
-      ].map((value) => Number(value.toFixed(1)));
-      mode = parsed.mode || mode;
-    } else if (body.no_boost && body.no_makedown && body.makedown) {
-      values = [
-        Number(body.no_boost),
-        Number(body.no_makedown),
-        Number(body.makedown),
-      ].map((value) => {
-        if (isNaN(value)) throw new Error(`Invalid number in update: ${value}`);
-        return Number(value.toFixed(1));
-      });
-      mode = body.mode || mode;
-    }
-
-    const endTime = performance.now();
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
-        success: true,
-        source,
         values,
-        mode,
-        timestamp,
-        processingTime: endTime - startTime,
+        mode: parsed.mode || "light",
       }),
     };
   } catch (error) {
-    console.error("Error:", error);
     return {
       statusCode: 400,
       headers,
-      body: JSON.stringify({
-        success: false,
-        message: error.message,
-        receivedBody: event.body,
-      }),
+      body: JSON.stringify({ error: error.message }),
     };
   }
 };

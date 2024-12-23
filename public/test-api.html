@@ -4,37 +4,16 @@
     <title>Highcharts Real-time Chart</title>
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <style>
-      body,
-      html {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-      }
       #chart-container {
         width: 100%;
-        height: 100%;
-        min-height: 300px;
+        height: 100vh;
         max-width: 800px;
         margin: 0 auto;
-        position: relative;
-      }
-      #error-message {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(255, 0, 0, 0.1);
-        padding: 20px;
-        border-radius: 8px;
-        display: none;
       }
     </style>
   </head>
   <body>
-    <div id="chart-container">
-      <div id="error-message"></div>
-    </div>
+    <div id="chart-container"></div>
 
     <script>
       const THEME_COLORS = {
@@ -52,36 +31,15 @@
         },
       };
 
-      const VALUE_COLORS = {
-        low: "#D32F2F",
-        medium: "#FFCA28",
-        high: "#388E3C",
-      };
-
-      function showError(message) {
-        const errorDiv = document.getElementById("error-message");
-        errorDiv.textContent = message;
-        errorDiv.style.display = "block";
-      }
-
-      function hideError() {
-        document.getElementById("error-message").style.display = "none";
-      }
-
       function getColorForValue(value) {
-        if (value <= 15) return VALUE_COLORS.low;
-        if (value <= 45) return VALUE_COLORS.medium;
-        return VALUE_COLORS.high;
+        if (value <= 15) return "#D32F2F";
+        if (value <= 45) return "#FFCA28";
+        return "#388E3C";
       }
 
-      function getThemeColors(mode) {
-        return THEME_COLORS[mode] || THEME_COLORS.light;
-      }
-
-      function createChart(initialValues, mode) {
-        hideError();
+      function createChart({ values, mode }) {
+        const theme = THEME_COLORS[mode] || THEME_COLORS.light;
         const container = document.getElementById("chart-container");
-        const theme = getThemeColors(mode);
 
         window.chart = Highcharts.chart(container, {
           chart: {
@@ -126,7 +84,7 @@
           series: [
             {
               name: "Values",
-              data: initialValues.map((value) => ({
+              data: values.map((value) => ({
                 y: value,
                 color: getColorForValue(value),
               })),
@@ -134,46 +92,24 @@
           ],
         });
 
-        const resizeObserver = new ResizeObserver((entries) => {
-          for (let entry of entries) {
-            if (window.chart) {
-              window.chart.setSize(
-                entry.contentRect.width,
-                entry.contentRect.height,
-                false
-              );
-            }
+        new ResizeObserver((entries) => {
+          if (window.chart) {
+            window.chart.setSize(
+              entries[0].contentRect.width,
+              entries[0].contentRect.height,
+              false
+            );
           }
-        });
-
-        resizeObserver.observe(container);
+        }).observe(container);
       }
 
-      async function init() {
-        try {
-          const response = await fetch("/.netlify/functions/get-chart-values", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "initial" }),
-          });
-
-          if (!response.ok)
-            throw new Error(`HTTP error! status: ${response.status}`);
-
-          const data = await response.json();
-          if (!data.success)
-            throw new Error("API returned unsuccessful status");
-          if (!data.values || !Array.isArray(data.values))
-            throw new Error("Invalid data format");
-
-          createChart(data.values, data.mode);
-        } catch (error) {
-          console.error("Failed to initialize chart:", error);
-          showError("Unable to load chart data. Please refresh the page.");
-        }
-      }
-
-      document.addEventListener("DOMContentLoaded", init);
+      fetch("/.netlify/functions/get-chart-values", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "initial" }),
+      })
+        .then((response) => response.json())
+        .then(createChart);
     </script>
   </body>
 </html>
