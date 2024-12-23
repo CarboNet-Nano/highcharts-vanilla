@@ -3,7 +3,6 @@
   <head>
     <title>Highcharts Real-time Chart</title>
     <script src="https://code.highcharts.com/highcharts.js"></script>
-    <script src="https://js.pusher.com/8.0/pusher.min.js"></script>
     <style>
       body,
       html {
@@ -58,12 +57,6 @@
         medium: "#FFCA28",
         high: "#388E3C",
       };
-
-      const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
-        cluster: "us3",
-      });
-
-      const channel = pusher.subscribe("chart-updates");
 
       function showError(message) {
         const errorDiv = document.getElementById("error-message");
@@ -140,14 +133,28 @@
             },
           ],
         });
+
+        const resizeObserver = new ResizeObserver((entries) => {
+          for (let entry of entries) {
+            if (window.chart) {
+              window.chart.setSize(
+                entry.contentRect.width,
+                entry.contentRect.height,
+                false
+              );
+            }
+          }
+        });
+
+        resizeObserver.observe(container);
       }
 
-      async function fetchWithRetry(retries = 1, baseDelay = 1000) {
+      async function init() {
         try {
           const response = await fetch("/.netlify/functions/get-chart-values", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "initial-load" }),
+            body: JSON.stringify({ type: "initial" }),
           });
 
           if (!response.ok)
@@ -159,89 +166,10 @@
           if (!data.values || !Array.isArray(data.values))
             throw new Error("Invalid data format");
 
-          hideError();
-          return data;
-        } catch (error) {
-          console.error("Failed to load data:", error);
-          showError("Unable to load chart data. Please refresh the page.");
-          throw error;
-        }
-      }
-
-      function showLoading() {
-        showError("Loading chart data...");
-      }
-
-      async function init() {
-        showLoading();
-        try {
-          const { values, mode } = await fetchWithRetry();
-          createChart(values, mode);
-
-          channel.bind("value-update", function (data) {
-            if (data.type === "update" && Array.isArray(data.values)) {
-              const chartData = data.values.map((value) => ({
-                y: Number(value),
-                color: getColorForValue(Number(value)),
-              }));
-
-              chartData.forEach((point, index) => {
-                window.chart.series[0].points[index].update(point, false);
-              });
-
-              if (data.mode) {
-                const theme = getThemeColors(data.mode);
-                window.chart.update(
-                  {
-                    chart: {
-                      backgroundColor: theme.background,
-                      style: { color: theme.text },
-                    },
-                    xAxis: {
-                      labels: { style: { color: theme.text } },
-                      lineColor: theme.grid,
-                      tickColor: theme.grid,
-                    },
-                    yAxis: {
-                      labels: { style: { color: theme.text } },
-                      gridLineColor: theme.grid,
-                      lineColor: theme.grid,
-                    },
-                    tooltip: {
-                      backgroundColor: theme.tooltip,
-                      style: { color: theme.text },
-                    },
-                    plotOptions: {
-                      column: {
-                        dataLabels: {
-                          style: { color: theme.text },
-                        },
-                      },
-                    },
-                  },
-                  false
-                );
-              }
-
-              window.chart.redraw(true);
-            }
-          });
-
-          const resizeObserver = new ResizeObserver((entries) => {
-            for (let entry of entries) {
-              if (window.chart) {
-                window.chart.setSize(
-                  entry.contentRect.width,
-                  entry.contentRect.height,
-                  false
-                );
-              }
-            }
-          });
-
-          resizeObserver.observe(container);
+          createChart(data.values, data.mode);
         } catch (error) {
           console.error("Failed to initialize chart:", error);
+          showError("Unable to load chart data. Please refresh the page.");
         }
       }
 
