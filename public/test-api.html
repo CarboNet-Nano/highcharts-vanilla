@@ -37,71 +37,57 @@
         return "#388E3C";
       }
 
-      function createChart({ chartId, values, mode }) {
-        console.log("Creating chart with:", { chartId, values, mode });
-        const theme = THEME_COLORS[mode] || THEME_COLORS.light;
+      // Create initial empty chart
+      function initializeChart(mode = "light") {
+        const theme = THEME_COLORS[mode];
         const container = document.getElementById("chart-container");
 
-        if (!container) {
-          console.error("Chart container not found");
-          return;
-        }
-
-        try {
-          window.chart = Highcharts.chart(container, {
-            chart: {
-              type: "column",
-              animation: false,
-              backgroundColor: theme.background,
+        window.chart = Highcharts.chart(container, {
+          chart: {
+            type: "column",
+            backgroundColor: theme.background,
+            style: { color: theme.text },
+          },
+          title: { text: null },
+          xAxis: {
+            categories: ["No Boost", "No Makedown", "Makedown"],
+            labels: { style: { color: theme.text } },
+            gridLineWidth: 0,
+            lineColor: theme.grid,
+            tickColor: theme.grid,
+          },
+          yAxis: {
+            title: { text: null },
+            labels: {
+              format: "{value}%",
               style: { color: theme.text },
             },
-            title: { text: null },
-            xAxis: {
-              categories: ["No Boost", "No Makedown", "Makedown"],
-              labels: { style: { color: theme.text } },
-              gridLineWidth: 0,
-              lineColor: theme.grid,
-              tickColor: theme.grid,
-            },
-            yAxis: {
-              title: { text: null },
-              labels: {
-                format: "{value}%",
+            gridLineWidth: 1,
+            gridLineColor: theme.grid,
+            lineColor: theme.grid,
+          },
+          tooltip: {
+            backgroundColor: theme.tooltip,
+            style: { color: theme.text },
+            borderWidth: 0,
+          },
+          plotOptions: {
+            column: {
+              animation: true,
+              dataLabels: {
+                enabled: true,
+                format: "{y:.1f}%",
                 style: { color: theme.text },
               },
-              gridLineWidth: 1,
-              gridLineColor: theme.grid,
-              lineColor: theme.grid,
             },
-            tooltip: {
-              backgroundColor: theme.tooltip,
-              style: { color: theme.text },
-              borderWidth: 0,
+          },
+          series: [
+            {
+              name: "Values",
+              data: [],
             },
-            plotOptions: {
-              column: {
-                animation: false,
-                dataLabels: {
-                  enabled: true,
-                  format: "{y:.1f}%",
-                  style: { color: theme.text },
-                },
-              },
-            },
-            series: [
-              {
-                name: "Values",
-                data: values.map((value) => ({
-                  y: value,
-                  color: getColorForValue(value),
-                })),
-              },
-            ],
-          });
-          console.log("Chart created successfully");
-        } catch (error) {
-          console.error("Error creating chart:", error);
-        }
+          ],
+        });
 
         new ResizeObserver((entries) => {
           if (window.chart) {
@@ -114,7 +100,20 @@
         }).observe(container);
       }
 
-      // Load initial data
+      // Update chart with data
+      function updateChartData({ values, mode }) {
+        const data = values.map((value) => ({
+          y: value,
+          color: getColorForValue(value),
+        }));
+
+        window.chart.series[0].setData(data, true);
+      }
+
+      // Initialize empty chart immediately
+      initializeChart();
+
+      // Load data
       fetch("/.netlify/functions/get-chart-values", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -129,22 +128,9 @@
           }),
         }),
       })
-        .then((response) => {
-          console.log("Received response:", response);
-          if (!response.ok)
-            throw new Error(`HTTP error! status: ${response.status}`);
-          return response.json();
-        })
-        .then((data) => {
-          console.log("Creating chart with data:", data);
-          createChart(data);
-        })
-        .catch((error) => {
-          console.error("Error:", error);
-          document.getElementById(
-            "chart-container"
-          ).innerHTML = `<div style="color: red">Error loading chart: ${error.message}</div>`;
-        });
+        .then((response) => response.json())
+        .then(updateChartData)
+        .catch(console.error);
     </script>
   </body>
 </html>
