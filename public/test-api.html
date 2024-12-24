@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html>
   <head>
@@ -120,6 +121,7 @@
           window.chart = Highcharts.chart(container, {
             chart: {
               type: "column",
+              animation: false,
               backgroundColor: theme.background,
               style: { color: theme.text },
               spacing: [0, 0, 0, 0],
@@ -151,10 +153,7 @@
             },
             plotOptions: {
               column: {
-                animation: {
-                  duration: 800,
-                  easing: "easeOutQuart",
-                },
+                animation: false,
                 dataLabels: {
                   enabled: true,
                   format: "{y:.1f}%",
@@ -197,3 +196,4 @@
     </script>
   </body>
 </html>
+```
