@@ -615,6 +615,7 @@ https://highcharts-vanilla.netlify.app/?values=35,46,82&unit=%
    ```
 
 3. Enhance error handling
+
    ```javascript
    // Add to dataManager.js
    validateAndFormat(data) {
@@ -976,8 +977,8 @@ Complete API spec includes:
 
 ## Test URLs
 
-- Test Page: https://highcharts-vanilla.netlify.app/test.html
-- Current Implementation: https://highcharts-vanilla.netlify.app/
+- Test Page: <https://highcharts-vanilla.netlify.app/test.html>
+- Current Implementation: <https://highcharts-vanilla.netlify.app/>
 
 ---
 
@@ -1564,4 +1565,4 @@ UPDATE AS OF DEC 15th 5:50PM IN HONG KONG
 ## Environment
 
 - Netlify Site: ornate-sorbet-9b9982
-- Test URL: https://highcharts-vanilla.netlify.app/test-api.html
+- Test URL: <https://highcharts-vanilla.netlify.app/test-api.html>
