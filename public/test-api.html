@@ -199,31 +199,6 @@
         }
       });
 
-      // Make initial request for data
-      fetch("/.netlify/functions/get-chart-values", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          json_column: JSON.stringify({
-            chartId: "test-chart",
-            no_boost: 35.1,
-            no_makedown: 46.3,
-            makedown: 78.7,
-            mode: "dark",
-            glide_source: "glide init",
-          }),
-        }),
-      })
-        .then((response) => {
-          if (!response.ok)
-            throw new Error(`HTTP error! status: ${response.status}`);
-          return response.json();
-        })
-        .catch((error) => {
-          showError(`Error loading initial data: ${error.message}`);
-          console.error("Error:", error);
-        });
-
       console.log("Setup complete");
     </script>
   </body>
