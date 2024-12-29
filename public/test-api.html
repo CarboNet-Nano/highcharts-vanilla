@@ -11,47 +11,33 @@
         padding: 0;
         width: 100%;
         height: 100%;
+        transition: background-color 0.3s;
       }
-
-      .loading-container {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background-color: #ffffff;
-        color: #000000;
-        opacity: 1;
-        transition: opacity 0.3s;
-        z-index: 1000;
-      }
-
-      .loading-text {
-        font-size: 1.2rem;
-      }
-
       #chart-container {
         width: 100%;
         height: 100vh;
         display: flex;
         justify-content: center;
         align-items: center;
+        transition: background-color 0.3s;
       }
-
       #error-message {
         color: red;
         padding: 20px;
         text-align: center;
       }
+      .loading {
+        color: #666;
+        font-size: 20px;
+        text-align: center;
+        margin: 20px;
+      }
     </style>
   </head>
   <body>
-    <div id="loading-screen" class="loading-container">
-      <div class="loading-text">Chart Loading...</div>
-    </div>
     <div id="chart-container">
       <div id="error-message"></div>
+      <div id="loading" class="loading">Loading chart...</div>
     </div>
 
     <script>
@@ -76,40 +62,39 @@
         cluster: "us3",
       });
 
+      function setTheme(mode = "light") {
+        const theme = THEME_COLORS[mode] || THEME_COLORS.light;
+        document.body.style.backgroundColor = theme.background;
+        document.getElementById("chart-container").style.backgroundColor =
+          theme.background;
+        const loadingEl = document.getElementById("loading");
+        if (loadingEl) {
+          loadingEl.style.color = theme.text;
+        }
+      }
+
       function showError(message) {
         console.error(message);
         document.getElementById("error-message").textContent = message;
       }
 
       function getColorForValue(value) {
-        console.log("Getting color for value:", value);
         if (value <= 15) return "#D32F2F";
         if (value <= 45) return "#FFCA28";
         return "#388E3C";
       }
 
-      function createChart(data) {
-        console.log("createChart called with data:", data);
-
-        if (!data) {
-          showError("No data provided to chart");
-          return;
-        }
-
-        if (!Array.isArray(data.values)) {
-          showError("Invalid data format received");
-          console.error("Data received:", data);
-          return;
-        }
-
-        const { values, mode } = data;
+      function createChart({ values, mode }) {
+        console.log("Creating chart with:", { values, mode });
         const theme = THEME_COLORS[mode] || THEME_COLORS.light;
         const container = document.getElementById("chart-container");
+        const loadingEl = document.getElementById("loading");
 
-        document.getElementById("loading-screen").style.opacity = "0";
-        setTimeout(() => {
-          document.getElementById("loading-screen").style.display = "none";
-        }, 300);
+        if (loadingEl) {
+          loadingEl.remove();
+        }
+
+        setTheme(mode);
 
         if (!container) {
           showError("Chart container not found");
@@ -135,6 +120,8 @@
               tickColor: theme.grid,
             },
             yAxis: {
+              min: 0,
+              max: 100,
               title: { text: null },
               labels: {
                 format: "{value}%",
@@ -151,7 +138,9 @@
             },
             plotOptions: {
               column: {
-                animation: false,
+                animation: {
+                  duration: 500,
+                },
                 dataLabels: {
                   enabled: true,
                   format: "{y:.1f}%",
@@ -169,29 +158,73 @@
               },
             ],
           });
-          document.getElementById("error-message").textContent = "";
+
+          new ResizeObserver((entries) => {
+            if (window.chart) {
+              window.chart.setSize(
+                entries[0].contentRect.width,
+                entries[0].contentRect.height,
+                false
+              );
+            }
+          }).observe(container);
         } catch (error) {
           showError(`Error creating chart: ${error.message}`);
           console.error("Error stack:", error.stack);
         }
-
-        new ResizeObserver((entries) => {
-          if (window.chart) {
-            window.chart.setSize(
-              entries[0].contentRect.width,
-              entries[0].contentRect.height,
-              false
-            );
-          }
-        }).observe(container);
       }
 
+      // Set initial theme based on system preference
+      const prefersDark = window.matchMedia(
+        "(prefers-color-scheme: dark)"
+      ).matches;
+      setTheme(prefersDark ? "dark" : "light");
+
+      // Initialize Pusher subscription for updates
       const channel = pusher.subscribe("chart-updates");
       channel.bind("value-update", function (data) {
         console.log("Received Pusher update:", data);
-        createChart(data);
+        if (!window.chart) {
+          createChart(data);
+        } else {
+          const { values, mode } = data;
+          setTheme(mode);
+          window.chart.series[0].setData(
+            values.map((value) => ({
+              y: value,
+              color: getColorForValue(value),
+            })),
+            true
+          );
+        }
       });
+
+      // Make initial request for data
+      fetch("/.netlify/functions/get-chart-values", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          json_column: JSON.stringify({
+            chartId: "test-chart",
+            no_boost: 35.1,
+            no_makedown: 46.3,
+            makedown: 78.7,
+            mode: "dark",
+            glide_source: "glide init",
+          }),
+        }),
+      })
+        .then((response) => {
+          if (!response.ok)
+            throw new Error(`HTTP error! status: ${response.status}`);
+          return response.json();
+        })
+        .catch((error) => {
+          showError(`Error loading initial data: ${error.message}`);
+          console.error("Error:", error);
+        });
+
+      console.log("Setup complete");
     </script>
   </body>
 </html>
-```

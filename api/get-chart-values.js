@@ -43,7 +43,7 @@ exports.handler = async (event, context) => {
     while (retries > 0) {
       try {
         await pusher.trigger("chart-updates", "value-update", {
-          type: "update",
+          type: "initial",
           source: "get-chart",
           values: validatedValues,
           mode: data.mode || "light",
