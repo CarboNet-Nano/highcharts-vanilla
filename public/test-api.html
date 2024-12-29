@@ -19,7 +19,6 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        transition: background-color 0.3s;
       }
       #error-message {
         color: red;
@@ -67,10 +66,6 @@
         document.body.style.backgroundColor = theme.background;
         document.getElementById("chart-container").style.backgroundColor =
           theme.background;
-        const loadingEl = document.getElementById("loading");
-        if (loadingEl) {
-          loadingEl.style.color = theme.text;
-        }
       }
 
       function showError(message) {
@@ -84,8 +79,14 @@
         return "#388E3C";
       }
 
-      function createChart({ values, mode }) {
-        console.log("Creating chart with:", { values, mode });
+      function createChart(data) {
+        console.log("Creating chart with data:", data);
+        if (!data || !data.values) {
+          showError("Invalid chart data");
+          return;
+        }
+
+        const { values, mode } = data;
         const theme = THEME_COLORS[mode] || THEME_COLORS.light;
         const container = document.getElementById("chart-container");
         const loadingEl = document.getElementById("loading");
@@ -174,29 +175,24 @@
         }
       }
 
-      // Set initial theme based on system preference
-      const prefersDark = window.matchMedia(
-        "(prefers-color-scheme: dark)"
-      ).matches;
-      setTheme(prefersDark ? "dark" : "light");
-
       // Initialize Pusher subscription for updates
       const channel = pusher.subscribe("chart-updates");
-      channel.bind("value-update", function (data) {
-        console.log("Received Pusher update:", data);
-        if (!window.chart) {
-          createChart(data);
-        } else {
-          const { values, mode } = data;
-          setTheme(mode);
-          window.chart.series[0].setData(
-            values.map((value) => ({
-              y: value,
-              color: getColorForValue(value),
-            })),
-            true
-          );
-        }
+      channel.bind("value-update", createChart);
+
+      // Make initial request
+      fetch("/.netlify/functions/get-chart-values", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chartId: "test-chart",
+          no_boost: 35.1,
+          no_makedown: 58.6,
+          makedown: 82.9,
+          mode: "dark",
+          glide_source: "glide init",
+        }),
+      }).catch((error) => {
+        showError(`Error loading chart: ${error.message}`);
       });
 
       console.log("Setup complete");
