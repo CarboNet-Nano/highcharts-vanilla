@@ -5,7 +5,8 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://js.pusher.com/8.0.1/pusher.min.js"></script>
     <style>
-      body, html {
+      body,
+      html {
         margin: 0;
         padding: 0;
         width: 100%;
@@ -40,7 +41,7 @@
 
     <script>
       console.log("Script initialized");
-      
+
       const THEME_COLORS = {
         light: {
           background: "#ffffff",
@@ -56,20 +57,21 @@
         },
       };
 
-      const pusher = new Pusher('809e85ce5d8ffdc09f9d', {
-        cluster: 'us3'
+      const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
+        cluster: "us3",
       });
 
-      function setTheme(mode = 'light') {
+      function setTheme(mode = "light") {
         const theme = THEME_COLORS[mode] || THEME_COLORS.light;
         document.body.style.backgroundColor = theme.background;
-        document.getElementById("chart-container").style.backgroundColor = theme.background;
+        document.getElementById("chart-container").style.backgroundColor =
+          theme.background;
       }
 
       function showError(message) {
         console.error(message);
-        document.getElementById('error-message').textContent = message;
-        document.getElementById('loading').style.display = 'none';
+        document.getElementById("error-message").textContent = message;
+        document.getElementById("loading").style.display = "none";
       }
 
       function getColorForValue(value) {
@@ -89,7 +91,7 @@
         const theme = THEME_COLORS[mode] || THEME_COLORS.light;
         const container = document.getElementById("chart-container");
         const loadingEl = document.getElementById("loading");
-        
+
         if (loadingEl) {
           loadingEl.remove();
         }
@@ -109,7 +111,7 @@
               style: { color: theme.text },
               spacing: [0, 0, 0, 0],
               marginLeft: 50,
-              marginTop: 20
+              marginTop: 20,
             },
             title: { text: null },
             xAxis: {
@@ -120,8 +122,6 @@
               tickColor: theme.grid,
             },
             yAxis: {
-              min: 0,
-              max: 100,
               title: { text: null },
               labels: {
                 format: "{value}%",
@@ -139,7 +139,7 @@
             plotOptions: {
               column: {
                 animation: {
-                  duration: 500
+                  duration: 500,
                 },
                 dataLabels: {
                   enabled: true,
@@ -148,13 +148,15 @@
                 },
               },
             },
-            series: [{
-              name: "Values",
-              data: values.map(value => ({
-                y: value,
-                color: getColorForValue(value)
-              }))
-            }]
+            series: [
+              {
+                name: "Values",
+                data: values.map((value) => ({
+                  y: value,
+                  color: getColorForValue(value),
+                })),
+              },
+            ],
           });
 
           new ResizeObserver((entries) => {
@@ -166,7 +168,6 @@
               );
             }
           }).observe(container);
-
         } catch (error) {
           showError(`Error creating chart: ${error.message}`);
           console.error("Error stack:", error.stack);
@@ -174,8 +175,8 @@
       }
 
       // Initialize Pusher subscription for updates
-      const channel = pusher.subscribe('chart-updates');
-      channel.bind('value-update', createChart);
+      const channel = pusher.subscribe("chart-updates");
+      channel.bind("value-update", createChart);
 
       console.log("Setup complete");
     </script>
