@@ -22,6 +22,10 @@ exports.handler = async (event, context) => {
     const data = body.json_column ? JSON.parse(body.json_column) : body;
     console.log("Final data:", data);
 
+    if (!data.no_boost || !data.no_makedown || !data.makedown) {
+      throw new Error("Missing required chart values");
+    }
+
     const values = [
       Number(data.no_boost),
       Number(data.no_makedown),
@@ -43,7 +47,7 @@ exports.handler = async (event, context) => {
     while (retries > 0) {
       try {
         await pusher.trigger("chart-updates", "value-update", {
-          type: "initial",
+          type: "update",
           source: "get-chart",
           values: validatedValues,
           mode: data.mode || "light",
