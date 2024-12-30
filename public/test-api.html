@@ -5,8 +5,7 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://js.pusher.com/8.0.1/pusher.min.js"></script>
     <style>
-      body,
-      html {
+      body, html {
         margin: 0;
         padding: 0;
         width: 100%;
@@ -40,9 +39,8 @@
     </div>
 
     <script>
-      let lastUpdateTime = 0;
       console.log("Script initialized");
-
+      
       const THEME_COLORS = {
         light: {
           background: "#ffffff",
@@ -80,16 +78,35 @@
         return "#388E3C";
       }
 
-      function createChart(data) {
-        const now = Date.now();
-        const timeSinceLastUpdate = now - lastUpdateTime;
-        console.log(`Received update at ${now}, ${timeSinceLastUpdate}ms since last update`);
-        console.log("Update data:", data);
-
-        lastUpdateTime = now;
-
+      function updateChart(data) {
+        console.log("Updating chart with data:", data);
+        
         if (!data || !data.values) {
-          showError("Waiting for chart data...");
+          showError("Invalid chart data");
+          return;
+        }
+
+        const { values, mode } = data;
+        setTheme(mode);
+
+        try {
+          window.chart.series[0].setData(
+            values.map(value => ({
+              y: value,
+              color: getColorForValue(value)
+            }))
+          );
+        } catch (error) {
+          showError(`Error updating chart: ${error.message}`);
+          console.error("Error stack:", error.stack);
+        }
+      }
+
+      function createChart(data) {
+        console.log("Creating new chart with data:", data);
+        
+        if (!data || !data.values) {
+          showError("Invalid chart data");
           return;
         }
 
@@ -97,9 +114,7 @@
         const theme = THEME_COLORS[mode] || THEME_COLORS.light;
         const container = document.getElementById("chart-container");
         const loadingEl = document.getElementById("loading");
-
-        const startRender = Date.now();
-
+        
         if (loadingEl) {
           loadingEl.remove();
         }
@@ -112,64 +127,68 @@
         }
 
         try {
-          if (!window.chart) {
-            console.log("Creating new chart");
-            window.chart = Highcharts.chart(container, {
-              chart: {
-                type: "column",
-                backgroundColor: theme.background,
-                style: { color: theme.text },
-                spacing: [0, 0, 0, 0],
-                marginLeft: 50,
-                marginTop: 20
-              },
+          window.chart = Highcharts.chart(container, {
+            chart: {
+              type: "column",
+              backgroundColor: theme.background,
+              style: { color: theme.text },
+              spacing: [0, 0, 0, 0],
+              marginLeft: 50,
+              marginTop: 20
+            },
+            title: { text: null },
+            xAxis: {
+              categories: ["No Boost", "No Makedown", "Makedown"],
+              labels: { style: { color: theme.text } },
+              gridLineWidth: 0,
+              lineColor: theme.grid,
+              tickColor: theme.grid,
+            },
+            yAxis: {
               title: { text: null },
-              xAxis: {
-                categories: ["No Boost", "No Makedown", "Makedown"],
-                labels: { style: { color: theme.text } },
-                gridLineWidth: 0,
-                lineColor: theme.grid,
-                tickColor: theme.grid,
+              labels: {
+                format: "{value}%",
+                style: { color: theme.text },
               },
-              yAxis: {
-                title: { text: null },
-                labels: {
-                  format: "{value}%",
+              gridLineWidth: 1,
+              gridLineColor: theme.grid,
+              lineColor: theme.grid,
+            },
+            tooltip: {
+              backgroundColor: theme.tooltip,
+              style: { color: theme.text },
+              borderWidth: 0,
+            },
+            plotOptions: {
+              column: {
+                animation: {
+                  duration: 500
+                },
+                dataLabels: {
+                  enabled: true,
+                  format: "{y:.1f}%",
                   style: { color: theme.text },
                 },
-                gridLineWidth: 1,
-                gridLineColor: theme.grid,
-                lineColor: theme.grid,
               },
-              tooltip: {
-                backgroundColor: theme.tooltip,
-                style: { color: theme.text },
-                borderWidth: 0,
-              },
-              plotOptions: {
-                column: {
-                  animation: {
-                    duration: 500
-                  },
-                  dataLabels: {
-                    enabled: true,
-                    format: "{y:.1f}%",
-                    style: { color: theme.text },
-                  },
-                },
-              },
-              series: [{
-                name: "Values",
-                data: values.map(value => ({
-                  y: value,
-                  color: getColorForValue(value)
-              })),
-              true
-            );
-          }
+            },
+            series: [{
+              name: "Values",
+              data: values.map(value => ({
+                y: value,
+                color: getColorForValue(value)
+              }))
+            }]
+          });
 
-          const renderTime = Date.now() - startRender;
-          console.log(`Chart render completed in ${renderTime}ms`);
+          new ResizeObserver((entries) => {
+            if (window.chart) {
+              window.chart.setSize(
+                entries[0].contentRect.width,
+                entries[0].contentRect.height,
+                false
+              );
+            }
+          }).observe(container);
 
         } catch (error) {
           showError(`Error creating chart: ${error.message}`);
@@ -180,21 +199,15 @@
       // Initialize Pusher subscription for updates
       const channel = pusher.subscribe('chart-updates');
       channel.bind('value-update', function(data) {
-        console.log("Pusher received event:", {
-          timestamp: new Date().toISOString(),
-          type: data.type,
-          source: data.source,
-          values: data.values
-        });
-        createChart(data);
+        console.log("Received Pusher update:", data);
+        if (!window.chart) {
+          createChart(data);
+        } else {
+          updateChart(data);
+        }
       });
 
       console.log("Setup complete");
     </script>
   </body>
 </html>
-})) }] }); new ResizeObserver((entries) => { if (window.chart) {
-window.chart.setSize( entries[0].contentRect.width,
-entries[0].contentRect.height, false ); } }).observe(container); } else {
-console.log("Updating existing chart"); window.chart.series[0].setData(
-values.map(value => ({ y: value, color: getColorForValue(value)
