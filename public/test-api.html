@@ -40,6 +40,7 @@
     </div>
 
     <script>
+      let lastUpdateTime = 0;
       console.log("Script initialized");
 
       const THEME_COLORS = {
@@ -57,21 +58,20 @@
         },
       };
 
-      const pusher = new Pusher("809e85ce5d8ffdc09f9d", {
-        cluster: "us3",
+      const pusher = new Pusher('809e85ce5d8ffdc09f9d', {
+        cluster: 'us3'
       });
 
-      function setTheme(mode = "light") {
+      function setTheme(mode = 'light') {
         const theme = THEME_COLORS[mode] || THEME_COLORS.light;
         document.body.style.backgroundColor = theme.background;
-        document.getElementById("chart-container").style.backgroundColor =
-          theme.background;
+        document.getElementById("chart-container").style.backgroundColor = theme.background;
       }
 
       function showError(message) {
         console.error(message);
-        document.getElementById("error-message").textContent = message;
-        document.getElementById("loading").style.display = "none";
+        document.getElementById('error-message').textContent = message;
+        document.getElementById('loading').style.display = 'none';
       }
 
       function getColorForValue(value) {
@@ -81,7 +81,13 @@
       }
 
       function createChart(data) {
-        console.log("Creating chart with data:", data);
+        const now = Date.now();
+        const timeSinceLastUpdate = now - lastUpdateTime;
+        console.log(`Received update at ${now}, ${timeSinceLastUpdate}ms since last update`);
+        console.log("Update data:", data);
+
+        lastUpdateTime = now;
+
         if (!data || !data.values) {
           showError("Waiting for chart data...");
           return;
@@ -91,6 +97,8 @@
         const theme = THEME_COLORS[mode] || THEME_COLORS.light;
         const container = document.getElementById("chart-container");
         const loadingEl = document.getElementById("loading");
+
+        const startRender = Date.now();
 
         if (loadingEl) {
           loadingEl.remove();
@@ -104,70 +112,65 @@
         }
 
         try {
-          window.chart = Highcharts.chart(container, {
-            chart: {
-              type: "column",
-              backgroundColor: theme.background,
-              style: { color: theme.text },
-              spacing: [0, 0, 0, 0],
-              marginLeft: 50,
-              marginTop: 20,
-            },
-            title: { text: null },
-            xAxis: {
-              categories: ["No Boost", "No Makedown", "Makedown"],
-              labels: { style: { color: theme.text } },
-              gridLineWidth: 0,
-              lineColor: theme.grid,
-              tickColor: theme.grid,
-            },
-            yAxis: {
-              title: { text: null },
-              labels: {
-                format: "{value}%",
+          if (!window.chart) {
+            console.log("Creating new chart");
+            window.chart = Highcharts.chart(container, {
+              chart: {
+                type: "column",
+                backgroundColor: theme.background,
                 style: { color: theme.text },
+                spacing: [0, 0, 0, 0],
+                marginLeft: 50,
+                marginTop: 20
               },
-              gridLineWidth: 1,
-              gridLineColor: theme.grid,
-              lineColor: theme.grid,
-            },
-            tooltip: {
-              backgroundColor: theme.tooltip,
-              style: { color: theme.text },
-              borderWidth: 0,
-            },
-            plotOptions: {
-              column: {
-                animation: {
-                  duration: 500,
-                },
-                dataLabels: {
-                  enabled: true,
-                  format: "{y:.1f}%",
+              title: { text: null },
+              xAxis: {
+                categories: ["No Boost", "No Makedown", "Makedown"],
+                labels: { style: { color: theme.text } },
+                gridLineWidth: 0,
+                lineColor: theme.grid,
+                tickColor: theme.grid,
+              },
+              yAxis: {
+                title: { text: null },
+                labels: {
+                  format: "{value}%",
                   style: { color: theme.text },
                 },
+                gridLineWidth: 1,
+                gridLineColor: theme.grid,
+                lineColor: theme.grid,
               },
-            },
-            series: [
-              {
+              tooltip: {
+                backgroundColor: theme.tooltip,
+                style: { color: theme.text },
+                borderWidth: 0,
+              },
+              plotOptions: {
+                column: {
+                  animation: {
+                    duration: 500
+                  },
+                  dataLabels: {
+                    enabled: true,
+                    format: "{y:.1f}%",
+                    style: { color: theme.text },
+                  },
+                },
+              },
+              series: [{
                 name: "Values",
-                data: values.map((value) => ({
+                data: values.map(value => ({
                   y: value,
-                  color: getColorForValue(value),
-                })),
-              },
-            ],
-          });
+                  color: getColorForValue(value)
+              })),
+              true
+            );
+          }
 
-          new ResizeObserver((entries) => {
-            if (window.chart) {
-              window.chart.setSize(
-                entries[0].contentRect.width,
-                entries[0].contentRect.height,
-                false
-              );
-            }
-          }).observe(container);
+          const renderTime = Date.now() - startRender;
+          console.log(`Chart render completed in ${renderTime}ms`);
+
         } catch (error) {
           showError(`Error creating chart: ${error.message}`);
           console.error("Error stack:", error.stack);
@@ -175,10 +178,23 @@
       }
 
       // Initialize Pusher subscription for updates
-      const channel = pusher.subscribe("chart-updates");
-      channel.bind("value-update", createChart);
+      const channel = pusher.subscribe('chart-updates');
+      channel.bind('value-update', function(data) {
+        console.log("Pusher received event:", {
+          timestamp: new Date().toISOString(),
+          type: data.type,
+          source: data.source,
+          values: data.values
+        });
+        createChart(data);
+      });
 
       console.log("Setup complete");
     </script>
   </body>
 </html>
+})) }] }); new ResizeObserver((entries) => { if (window.chart) {
+window.chart.setSize( entries[0].contentRect.width,
+entries[0].contentRect.height, false ); } }).observe(container); } else {
+console.log("Updating existing chart"); window.chart.series[0].setData(
+values.map(value => ({ y: value, color: getColorForValue(value)
